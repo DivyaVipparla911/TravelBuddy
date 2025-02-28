@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth } from "./config/firebase";
+import { auth } from "./app/config/firebase";
 import AuthNavigator from "./app/navigation/AuthNavigator";
 import BottomTabNavigator from "./app/navigation/BottomTabNavigator";
 

@@ -7,7 +7,7 @@ import HomeScreen from "../screens/HomeScreen";
 import AITripsScreen from "../screens/AITripsScreen";
 import AddTripScreen from "../screens/AddTripScreen";
 import ChatScreen from "../screens/ChatScreen";
-import ProfileScreen from "../screens/ProfileScreen";
+import ProfileScreen from "../screens/Profile/ProfileScreen";
 const Tab = createBottomTabNavigator();
 
 const BottomTabNavigator = () => {
