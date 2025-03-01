@@ -2,28 +2,34 @@ import React, { useState, useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./app/config/firebase";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
 import AuthNavigator from "./app/navigation/AuthNavigator";
 import BottomTabNavigator from "./app/navigation/BottomTabNavigator";
+import CreateProfileScreen from "./app/screens/Profile/EditProfileScreen"
 
+const db = getFirestore();
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [profileCreated, setProfileCreated] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log("User State Changed: ", user);
       if (user) {
-        console.log("User is logged in. Email:", user.email);
-        console.log("User UID:", user.uid);
-        // Uncomment the following line to force sign out for testing
+        const userDocRef = doc(db, "users", user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+
+        if (userDocSnap.exists() && userDocSnap.data().profileCreated) {
+          setProfileCreated(true);
+        } else {
+          setProfileCreated(false);
+        }
         await auth.signOut();
-        console.log("User signed out.");
-      } else {
-        console.log("No user is logged in.");
       }
       setUser(user);
       setLoading(false);
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -34,6 +40,11 @@ export default function App() {
       </View>
     );
   }
-
-  return user ? <BottomTabNavigator /> : <AuthNavigator />;
+  if (!user) {
+    return <AuthNavigator />;
+  } else if (!profileCreated) {
+    return <CreateProfileScreen />;
+  } else {
+    return <BottomTabNavigator />;
+  }
 }
