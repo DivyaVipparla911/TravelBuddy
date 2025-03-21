@@ -4,7 +4,6 @@ import { View, Text, TouchableOpacity, StyleSheet, Image } from "react-native";
 const VerifyIdentityScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
-      <Text style={styles.stepText}>Step 1 of 3</Text>
       <Text style={styles.title}>Verify Your Identity</Text>
       <Text style={styles.description}>
         To ensure the security of our community, we need to verify your identity before proceeding.
