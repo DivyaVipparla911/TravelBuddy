@@ -5,7 +5,8 @@ import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Checkbox from "expo-checkbox";
 import { Ionicons } from "@expo/vector-icons";
-import defaultAvatar from "../../../assets/profile-pic.png"; 
+import defaultAvatar from "../../../assets/profile-pic.png";
+import { useNavigation } from "@react-navigation/native"; // Import useNavigation
 
 const CreateProfile = () => {
   const [profileImage, setProfileImage] = useState(null);
@@ -21,6 +22,8 @@ const CreateProfile = () => {
   });
   const [address, setAddress] = useState({ street: "", city: "", state: "", zip: "" });
   const [aboutMe, setAboutMe] = useState("");
+
+  const navigation = useNavigation(); // Initialize navigation
 
   useEffect(() => {
     (async () => {
@@ -41,6 +44,10 @@ const CreateProfile = () => {
     if (!result.canceled) setImage(result.assets[0].uri);
   };
 
+  const handleUploadID = () => {
+    navigation.navigate("VerifyIdentity"); // Navigate to VerifyIdentity screen
+  };
+
   return (
     <ScrollView style={{ padding: 16, backgroundColor: "white" }}>
       <View style={{ alignItems: "center", marginBottom: 16 }}>
@@ -54,7 +61,10 @@ const CreateProfile = () => {
         <Text style={{ color: "gray", marginTop: 8 }}>Change Photo</Text>
       </View>
 
-      <TouchableOpacity style={{ borderWidth: 1, padding: 12, borderRadius: 8, alignItems: "center" }} onPress={() => pickImage(setIdImage)}>
+      <TouchableOpacity
+        style={{ borderWidth: 1, padding: 12, borderRadius: 8, alignItems: "center" }}
+        onPress={handleUploadID} // Updated to navigate to VerifyIdentity
+      >
         <Ionicons name="document" size={24} color="gray" />
         <Text style={{ color: "gray" }}>Upload License or State ID</Text>
       </TouchableOpacity>
