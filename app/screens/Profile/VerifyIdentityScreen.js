@@ -23,9 +23,9 @@ const VerifyIdentityScreen = ({ navigation }) => {
         </View>
       </View>
       <Text style={styles.requirementsTitle}>You'll need:</Text>
-      <Text style={styles.requirementsText}>✔ Valid government-issued ID</Text>
-      <Text style={styles.requirementsText}>✔ Working camera for selfie</Text>
-      <Text style={styles.requirementsText}>✔ About 5 minutes of your time</Text>
+      <Text style={styles.requirementsText}>🆔 Valid government-issued ID</Text>
+      <Text style={styles.requirementsText}>📷 Working camera for selfie</Text>
+      <Text style={styles.requirementsText}>⏱️ About 5 minutes of your time</Text>
       <TouchableOpacity
         style={styles.button}
         onPress={() => navigation.navigate("UploadLicense")}

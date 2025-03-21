@@ -81,10 +81,11 @@ const handleSignup = async () => {
           <Text style={styles.buttonText}>Create Account</Text>
         </TouchableOpacity>
 
-        {/* Navigation to Login */}
         <TouchableOpacity onPress={() => navigation.navigate("Login")}>
-          <Text style={styles.linkText}>Already have an account? Login</Text>
-        </TouchableOpacity>
+  <Text style={styles.linkText}>
+    Already have an account? <Text style={{ fontWeight: "bold" }}>Login</Text>
+  </Text>
+</TouchableOpacity>
       
     </ScrollView>
   );

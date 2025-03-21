@@ -70,23 +70,20 @@ const CreateProfile = () => {
       </TouchableOpacity>
 
       <Text style={{ marginTop: 16 }}>Date of Birth</Text>
-<TouchableOpacity 
-  style={{ borderWidth: 1, padding: 12, borderRadius: 8 }} 
-  onPress={() => setShowDatePicker(true)}
->
-  <Text>{dateOfBirth.toDateString()}</Text>
-</TouchableOpacity>
-{showDatePicker && (
-  <DateTimePicker
-    value={dateOfBirth}
-    mode="date"
-    display="default"
-    onChange={(event, date) => {
-      setShowDatePicker(false);
-      if (date) setDateOfBirth(date);
-    }}
-  />
-)}
+      <TouchableOpacity style={{ borderWidth: 1, padding: 12, borderRadius: 8 }} onPress={() => setShowDatePicker(true)}>
+        <Text>{dateOfBirth.toDateString()}</Text>
+      </TouchableOpacity>
+      {showDatePicker && (
+        <DateTimePicker
+          value={dateOfBirth}
+          mode="date"
+          display="default"
+          onChange={(event, date) => {
+            setShowDatePicker(false);
+            if (date) setDateOfBirth(date);
+          }}
+        />
+      )}
 
       <Text style={{ marginTop: 16 }}>Gender</Text>
       <View style={{ borderWidth: 1, borderRadius: 8 }}>

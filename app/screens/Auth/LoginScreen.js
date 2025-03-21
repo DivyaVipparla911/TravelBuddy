@@ -1,6 +1,12 @@
 import React, { useState } from "react";
-import { 
-  View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, Image 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+  Image,
 } from "react-native";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../config/firebase";
@@ -33,19 +39,26 @@ const LoginScreen = ({ navigation }) => {
         // Forgot Password UI
         <View style={styles.forgotContainer}>
           {/* Back Button */}
-          <TouchableOpacity onPress={() => setForgotPassword(false)} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={() => setForgotPassword(false)}
+            style={styles.backButton}
+          >
             <Text style={styles.backText}>← Forgot Password</Text>
           </TouchableOpacity>
 
           {/* Lock Icon */}
-          <Image source={require("../../../assets/lock.png")} style={styles.icon} />
+          <Image
+            source={require("../../../assets/lock.png")}
+            style={styles.icon}
+          />
 
           {/* Title */}
           <Text style={styles.title}>Reset Password</Text>
 
           {/* Description */}
           <Text style={styles.description}>
-            Enter your email address and we'll send you an OTP to reset your password
+            Enter your email address and we'll send you an OTP to reset your
+            password
           </Text>
 
           {/* Email Input */}
@@ -72,7 +85,11 @@ const LoginScreen = ({ navigation }) => {
       ) : (
         // Login UI
         <>
-          <Image source={require("../../../assets/logo.png")} style={styles.logo} resizeMode="contain" />
+          <Image
+            source={require("../../../assets/logo.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <View style={styles.box}>
             <Text style={styles.title}>Welcome</Text>
 
@@ -96,20 +113,27 @@ const LoginScreen = ({ navigation }) => {
               onChangeText={setPassword}
             />
 
+            {/* Login Button */}
             <TouchableOpacity onPress={handleLogin} style={styles.loginButton}>
               <Text style={styles.loginText}>Log In</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => setForgotPassword(true)}>
-              <Text style={styles.forgotPassword}>Forgot Password?</Text>
-            </TouchableOpacity>
-          </View>
+            {/* Forgot Password Link */}
+            <View style={styles.forgotPasswordContainer}>
+              <TouchableOpacity onPress={() => setForgotPassword(true)}>
+                <Text style={styles.forgotPassword}>
+                  <Text style={{ fontWeight: "bold" }}>Forgot Password?</Text>
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-          <View style={styles.signupContainer}>
-            <Text style={styles.signupText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
-              <Text style={styles.signupLink}>Create Account</Text>
-            </TouchableOpacity>
+            {/* Sign Up Link */}
+            <View style={styles.signupContainer}>
+              <Text style={styles.signupText}>Don't have an account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
+                <Text style={styles.signupLink}>Create Account</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </>
       )}
@@ -118,7 +142,14 @@ const LoginScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FAFAFA", justifyContent: "center", alignItems: "center", padding: 20 },  box: {
+  container: {
+    flex: 1,
+    backgroundColor: "#FAFAFA",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  box: {
     width: "100%",
     backgroundColor: "#fff",
     borderRadius: 15,
@@ -139,8 +170,19 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     fontSize: 14,
   },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
-  input: { width: "100%", padding: 10, borderWidth: 1, marginBottom: 10, borderRadius: 5 },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  input: {
+    width: "100%",
+    padding: 10,
+    borderWidth: 1,
+    marginBottom: 10,
+    borderRadius: 5,
+  },
   loginButton: {
     backgroundColor: "#000",
     paddingVertical: 14,
@@ -161,6 +203,7 @@ const styles = StyleSheet.create({
   signupContainer: {
     flexDirection: "row",
     marginTop: 16,
+    justifyContent: "center",
   },
   signupText: {
     color: "#666",
@@ -171,11 +214,31 @@ const styles = StyleSheet.create({
   },
 
   // Forgot Password Styles
-  forgotContainer: { flex: 1, backgroundColor: "#fff", padding: 20, justifyContent: "center" },
-  backButton: { marginBottom: 20 },
-  backText: { fontSize: 16, color: "#000" },
-  icon: { width: 80, height: 80, alignSelf: "center", marginBottom: 20 },
-  description: { fontSize: 14, color: "#666", textAlign: "center", marginBottom: 20 },
+  forgotContainer: {
+    flex: 1,
+    backgroundColor: "#fff",
+    padding: 20,
+    justifyContent: "center",
+  },
+  backButton: {
+    marginBottom: 20,
+  },
+  backText: {
+    fontSize: 16,
+    color: "#000",
+  },
+  icon: {
+    width: 80,
+    height: 80,
+    alignSelf: "center",
+    marginBottom: 20,
+  },
+  description: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 20,
+  },
   sendOtpButton: {
     backgroundColor: "#000",
     paddingVertical: 14,
@@ -183,8 +246,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
   },
-  sendOtpText: { color: "#fff", fontSize: 16, fontWeight: "600" },
-  backToLogin: { marginTop: 16, color: "#666", fontSize: 14, textAlign: "center" },
+  sendOtpText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  backToLogin: {
+    marginTop: 16,
+    color: "#666",
+    fontSize: 14,
+    textAlign: "center",
+  },
 });
 
 export default LoginScreen;
