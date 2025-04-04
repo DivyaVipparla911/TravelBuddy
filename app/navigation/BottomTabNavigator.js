@@ -8,11 +8,14 @@ import AITripsScreen from "../screens/AITripsScreen";
 import AddTripScreen from "../screens/AddTripScreen";
 import ChatScreen from "../screens/ChatScreen";
 import ProfileScreen from "../screens/Profile/ProfileScreen";
+import VerifyIdentityScreen from "../screens/Profile/VerifyIdentityScreen";
+import UploadLicenseScreen from "../screens/Profile/UploadLicenseScreen";
+import VerifyingSubmissionScreen from "../screens/Profile/VerifyingSubmissionScreen";
+
 const Tab = createBottomTabNavigator();
 
 const BottomTabNavigator = () => {
   return (
-    <NavigationContainer>
       <Tab.Navigator
         screenOptions={({ route }) => ({
           tabBarIcon: ({ focused, color, size }) => {
@@ -44,7 +47,7 @@ const BottomTabNavigator = () => {
         <Tab.Screen name="Chat" component={ChatScreen} />
         <Tab.Screen name="Profile" component={ProfileScreen} />
       </Tab.Navigator>
-    </NavigationContainer>
+    
   );
 };
 

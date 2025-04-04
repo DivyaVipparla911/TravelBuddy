@@ -1,19 +1,28 @@
-import "firebase/auth";
-import "firebase/firestore";
-import { initializeApp, getApps, getApp } from "firebase/app";
+// import "firebase/auth";
+// import "firebase/firestore";
+// import firebase from '@react-native-firebase/app';
+// import firestore from '@react-native-firebase/firestore';
+import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from 'firebase/storage';
+// import firebase from 'firebase/app';
 
 const firebaseConfig = {
-    apiKey: "AIzaSyD0vmJ8_Tq9Geo3hFMyOO7eAbAXn4CLeio",
-    authDomain: "donationproject-7ed58.firebaseapp.com",
-    projectId: "donationproject-7ed58",
-    storageBucket: "donationproject-7ed58.firebasestorage.app",
-    messagingSenderId: "99146783941",
-    appId: "1:99146783941:web:0a13b28c743444336424ac",
-    measurementId: "G-3T1SV27641"  
+    apiKey: "AIzaSyC88Xz8qiGFu8hdev7mxiY2gk_ldrRTvtI",
+    authDomain: "travel-buddy-fdfc0.firebaseapp.com",
+    projectId: "travel-buddy-fdfc0",
+    storageBucket: "travel-buddy-fdfc0.firebasestorage.app",
+    messagingSenderId: "402915556052",
+    appId: "1:402915556052:web:59e306c364672db1b19941",
+    measurementId: "G-M04G14PQJT"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+const firestore = getFirestore(app);
 
-export { auth };
+export { auth,firestore,db,storage };
+

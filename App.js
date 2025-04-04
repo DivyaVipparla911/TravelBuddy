@@ -1,21 +1,45 @@
-import React, { useState, useEffect, lazy, Suspense } from "react";
+import React, { useState, useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./app/config/firebase";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, onSnapshot } from "firebase/firestore";
 import AuthNavigator from "./app/navigation/AuthNavigator";
 import BottomTabNavigator from "./app/navigation/BottomTabNavigator";
+import CreateProfileScreen from "./app/screens/Profile/CreateProfileScreen";
+import VerifyIdentityScreen from "./app/screens/Profile/VerifyIdentityScreen";
+import UploadLicenseScreen from "./app/screens/Profile/UploadLicenseScreen";
+import VerifyingSubmissionScreen from "./app/screens/Profile/VerifyingSubmissionScreen";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
-import CreateProfileScreen from "./app/screens/Profile/EditProfileScreen";
 
 const db = getFirestore();
 const Stack = createStackNavigator();
+const ProfileStack = createStackNavigator();
 
-// Lazy-loaded ID verification screens
-const VerifyIdentityScreen = lazy(() => import("./app/screens/Profile/VerifyIdentityScreen"));
-const UploadLicenseScreen = lazy(() => import("./app/screens/Profile/UploadLicenseScreen"));
-const VerifyingSubmissionScreen = lazy(() => import("./app/screens/Profile/VerifyingSubmissionScreen"));
+// Create a separate navigator for the profile creation flow
+const ProfileCreationNavigator = () => {
+  return (
+    <ProfileStack.Navigator>
+      <ProfileStack.Screen 
+        name="CreateProfile" 
+        component={CreateProfileScreen} 
+        options={{ headerShown: false }}
+      />
+      <ProfileStack.Screen 
+        name="VerifyIdentity" 
+        component={VerifyIdentityScreen}
+      />
+      <ProfileStack.Screen 
+        name="UploadLicense" 
+        component={UploadLicenseScreen}
+      />
+      <ProfileStack.Screen 
+        name="VerifyingSubmission" 
+        component={VerifyingSubmissionScreen}
+      />
+    </ProfileStack.Navigator>
+  );
+};
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -27,19 +51,20 @@ export default function App() {
       if (user) {
         const userDocRef = doc(db, "users", user.uid);
         const userDocSnap = await getDoc(userDocRef);
-
         if (userDocSnap.exists() && userDocSnap.data().profileCreated) {
           setProfileCreated(true);
         } else {
           setProfileCreated(false);
         }
+       //auth.signOut()
       }
       setUser(user);
       setLoading(false);
     });
-
-    return () => unsubscribe();
+    return () => unsubscribe(); // Cleanup listener on unmount
   }, []);
+
+  
 
   if (loading) {
     return (
@@ -49,53 +74,17 @@ export default function App() {
     );
   }
 
-  // Show authentication flow if user is not logged in
-  if (!user) {
-    return <AuthNavigator />;
-  }
-
-  // Show profile creation & ID verification flow if profile is not created
-  if (!profileCreated) {
-    return (
-      <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="CreateProfile" component={CreateProfileScreen} />
-          <Stack.Screen
-            name="VerifyIdentity"
-            component={(props) => (
-              <Suspense fallback={<LoadingScreen />}>
-                <VerifyIdentityScreen {...props} />
-              </Suspense>
-            )}
-          />
-          <Stack.Screen
-            name="UploadLicense"
-            component={(props) => (
-              <Suspense fallback={<LoadingScreen />}>
-                <UploadLicenseScreen {...props} />
-              </Suspense>
-            )}
-          />
-          <Stack.Screen
-            name="VerifyingSubmission"
-            component={(props) => (
-              <Suspense fallback={<LoadingScreen />}>
-                <VerifyingSubmissionScreen {...props} />
-              </Suspense>
-            )}
-          />
-        </Stack.Navigator>
-      </NavigationContainer>
-    );
-  }
-
-  // Show main app flow if the user has a profile
-  return <BottomTabNavigator />;
+  return (
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {!user ? (
+          <Stack.Screen name="Auth" component={AuthNavigator} />
+        ) : !profileCreated ? (
+          <Stack.Screen name="ProfileCreation" component={ProfileCreationNavigator} />
+        ) : (
+          <Stack.Screen name="BottomTab" component={BottomTabNavigator} />
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
 }
-
-// Fallback loading screen
-const LoadingScreen = () => (
-  <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-    <ActivityIndicator size="large" color="black" />
-  </View>
-);

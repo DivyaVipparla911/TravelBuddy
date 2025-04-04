@@ -7,6 +7,9 @@ import Checkbox from "expo-checkbox";
 import { Ionicons } from "@expo/vector-icons";
 import defaultAvatar from "../../../assets/profile-pic.png";
 import { useNavigation } from "@react-navigation/native"; // Import useNavigation
+import { auth, firestore } from "../../config/firebase"; // Import Firebase Web SDK
+import { collection, doc, setDoc, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../../config/firebase";
 
 const CreateProfile = () => {
   const [profileImage, setProfileImage] = useState(null);
@@ -22,6 +25,7 @@ const CreateProfile = () => {
   });
   const [address, setAddress] = useState({ street: "", city: "", state: "", zip: "" });
   const [aboutMe, setAboutMe] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const navigation = useNavigation(); // Initialize navigation
 
@@ -46,6 +50,42 @@ const CreateProfile = () => {
 
   const handleUploadID = () => {
     navigation.navigate("VerifyIdentity"); // Navigate to VerifyIdentity screen
+  };
+  const handleSave = async () => {
+    setIsLoading(true);
+    const user = auth.currentUser; // Use auth.currentUser
+    console.log("Current User:", user);
+    if (!user) {
+      Alert.alert("Error", "You must be logged in to create a profile.");
+      setIsLoading(false);
+      return;
+    }
+    try{
+      const profileData = collection(db, 'Profiles');
+      await addDoc(profileData, {
+        userId: user.uid,
+            profileImage,
+            idImage,
+            dateOfBirth: dateOfBirth.toISOString(),
+            gender,
+            travelInterests: Object.keys(travelInterests).filter((key) => travelInterests[key]),
+            address,
+            aboutMe,
+            createdAt: serverTimestamp(),
+            
+      });
+      // Update the user document to mark profile as created
+      const userDocRef = doc(db, "users", user.uid);
+      await setDoc(userDocRef, { profileCreated: true }, { merge: true });
+
+      console.log("Profile saved successfully!");
+      Alert.alert("Success", "Profile saved successfully!");
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      Alert.alert("Error", "Failed to save profile.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -112,7 +152,7 @@ const CreateProfile = () => {
       <Text style={{ marginTop: 16 }}>About Me</Text>
       <TextInput style={{ borderWidth: 1, padding: 12, borderRadius: 8, marginTop: 8, height: 80 }} placeholder="Tell us about yourself..." multiline value={aboutMe} onChangeText={setAboutMe} />
 
-      <TouchableOpacity style={{ backgroundColor: "blue", padding: 12, borderRadius: 8, alignItems: "center", marginTop: 16 }}>
+      <TouchableOpacity style={{ backgroundColor: "blue", padding: 12, borderRadius: 8, alignItems: "center", marginTop: 16 }} onPress={handleSave}>
         <Text style={{ color: "white" }}>Save</Text>
       </TouchableOpacity>
     </ScrollView>
