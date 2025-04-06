@@ -31,21 +31,6 @@ const handleSignup = async () => {
         <Ionicons name="shield-checkmark-outline" size={40} color="black" />
         <Text style={styles.title}>Create Account</Text>
         <Text style={styles.subtitle}>Fill in your details to get started</Text>
-
-        {/* Full Name Field */}
-        <Text style={styles.label}>Full Name</Text>
-        <View style={styles.inputContainer}>
-          <Ionicons name="person-outline" size={20} color="gray" style={styles.icon} />
-          <TextInput 
-            style={styles.input} 
-            placeholder="Enter your full name" 
-            value={fullName} 
-            onChangeText={setFullName} 
-          />
-        </View>
-
-        
-
         {/* Email Field */}
         <Text style={styles.label}>Email Address</Text>
         <View style={styles.inputContainer}>

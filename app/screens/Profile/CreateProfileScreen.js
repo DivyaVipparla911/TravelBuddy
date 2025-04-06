@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Image, ScrollView, Alert, StyleSheet, SafeAreaView, KeyboardAvoidingView, Platform } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Checkbox from "expo-checkbox";
 import { Ionicons } from "@expo/vector-icons";
 import defaultAvatar from "../../../assets/profile-pic.png";
-import { useNavigation } from "@react-navigation/native"; // Import useNavigation
-import { auth, firestore } from "../../config/firebase"; // Import Firebase Web SDK
+import { useNavigation } from "@react-navigation/native";
+import { auth } from "../../config/firebase";
 import { collection, doc, setDoc, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../config/firebase";
 
 const CreateProfile = () => {
   const [profileImage, setProfileImage] = useState(null);
+  const [fullName, setFullName] = useState("");
   const [idImage, setIdImage] = useState(null);
   const [dateOfBirth, setDateOfBirth] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -27,7 +28,7 @@ const CreateProfile = () => {
   const [aboutMe, setAboutMe] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const navigation = useNavigation(); // Initialize navigation
+  const navigation = useNavigation();
 
   useEffect(() => {
     (async () => {
@@ -49,37 +50,53 @@ const CreateProfile = () => {
   };
 
   const handleUploadID = () => {
-    navigation.navigate("VerifyIdentity"); // Navigate to VerifyIdentity screen
+    navigation.navigate("VerifyIdentity");
   };
+
   const handleSave = async () => {
+    if (!fullName.trim()) {
+      Alert.alert("Error", "Please enter your full name");
+      return;
+    }
+
     setIsLoading(true);
-    const user = auth.currentUser; // Use auth.currentUser
+    const user = auth.currentUser;
     console.log("Current User:", user);
+    
     if (!user) {
       Alert.alert("Error", "You must be logged in to create a profile.");
       setIsLoading(false);
       return;
     }
-    try{
+    
+    try {
       const profileData = collection(db, 'Profiles');
       await addDoc(profileData, {
         userId: user.uid,
-            profileImage,
-            idImage,
-            dateOfBirth: dateOfBirth.toISOString(),
-            gender,
-            travelInterests: Object.keys(travelInterests).filter((key) => travelInterests[key]),
-            address,
-            aboutMe,
-            createdAt: serverTimestamp(),
-            
+        fullName,
+        profileImage,
+        idImage,
+        dateOfBirth: dateOfBirth.toISOString(),
+        gender,
+        travelInterests: Object.keys(travelInterests).filter((key) => travelInterests[key]),
+        address,
+        aboutMe,
+        createdAt: serverTimestamp(),
       });
+      
       // Update the user document to mark profile as created
       const userDocRef = doc(db, "users", user.uid);
-      await setDoc(userDocRef, { profileCreated: true }, { merge: true });
+      await setDoc(userDocRef, { 
+        profileCreated: true,
+        fullName: fullName 
+      }, { merge: true });
 
       console.log("Profile saved successfully!");
-      Alert.alert("Success", "Profile saved successfully!");
+      Alert.alert(
+        "Success", 
+        "Profile saved successfully!", 
+        [{ text: "OK", onPress: () => navigation.navigate("Home") }]
+      );
     } catch (error) {
       console.error("Error saving profile:", error);
       Alert.alert("Error", "Failed to save profile.");
@@ -89,74 +106,252 @@ const CreateProfile = () => {
   };
 
   return (
-    <ScrollView style={{ padding: 16, backgroundColor: "white" }}>
-      <View style={{ alignItems: "center", marginBottom: 16 }}>
-        <TouchableOpacity onPress={() => pickImage(setProfileImage)}>
-          <Image
-            source={profileImage ? { uri: profileImage } : defaultAvatar}
-            style={{ width: 96, height: 96, borderRadius: 48, borderWidth: 1 }}
-          />
-          <Ionicons name="camera" size={24} style={{ position: "absolute", bottom: 0, right: 0, backgroundColor: "gray", padding: 5, borderRadius: 12 }} />
-        </TouchableOpacity>
-        <Text style={{ color: "gray", marginTop: 8 }}>Change Photo</Text>
-      </View>
-
-      <TouchableOpacity
-        style={{ borderWidth: 1, padding: 12, borderRadius: 8, alignItems: "center" }}
-        onPress={handleUploadID} // Updated to navigate to VerifyIdentity
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
       >
-        <Ionicons name="document" size={24} color="gray" />
-        <Text style={{ color: "gray" }}>Upload License or State ID</Text>
-      </TouchableOpacity>
-
-      <Text style={{ marginTop: 16 }}>Date of Birth</Text>
-      <TouchableOpacity style={{ borderWidth: 1, padding: 12, borderRadius: 8 }} onPress={() => setShowDatePicker(true)}>
-        <Text>{dateOfBirth.toDateString()}</Text>
-      </TouchableOpacity>
-      {showDatePicker && (
-        <DateTimePicker
-          value={dateOfBirth}
-          mode="date"
-          display="default"
-          onChange={(event, date) => {
-            setShowDatePicker(false);
-            if (date) setDateOfBirth(date);
-          }}
-        />
-      )}
-
-      <Text style={{ marginTop: 16 }}>Gender</Text>
-      <View style={{ borderWidth: 1, borderRadius: 8 }}>
-        <Picker selectedValue={gender} onValueChange={(itemValue) => setGender(itemValue)}>
-          <Picker.Item label="Select gender" value="" />
-          <Picker.Item label="Male" value="male" />
-          <Picker.Item label="Female" value="female" />
-          <Picker.Item label="Other" value="other" />
-        </Picker>
-      </View>
-
-      <Text style={{ marginTop: 16 }}>Travel Interests</Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-        {Object.keys(travelInterests).map((interest) => (
-          <View key={interest} style={{ flexDirection: "row", alignItems: "center", margin: 8 }}>
-            <Checkbox value={travelInterests[interest]} onValueChange={(newValue) => setTravelInterests({ ...travelInterests, [interest]: newValue })} />
-            <Text style={{ marginLeft: 8 }}>{interest}</Text>
+        <ScrollView 
+          style={styles.container}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.profileImageContainer}>
+            <TouchableOpacity onPress={() => pickImage(setProfileImage)}>
+              <Image
+                source={profileImage ? { uri: profileImage } : defaultAvatar}
+                style={styles.profileImage}
+              />
+              <Ionicons name="camera" size={24} style={styles.cameraIcon} />
+            </TouchableOpacity>
+            <Text style={styles.changePhotoText}>Change Photo</Text>
           </View>
-        ))}
-      </View>
 
-      <Text style={{ marginTop: 16 }}>Address</Text>
-      <TextInput style={{ borderWidth: 1, padding: 12, borderRadius: 8, marginTop: 8 }} placeholder="Street Address" value={address.street} onChangeText={(text) => setAddress({ ...address, street: text })} />
-      <TextInput style={{ borderWidth: 1, padding: 12, borderRadius: 8, marginTop: 8 }} placeholder="City" value={address.city} onChangeText={(text) => setAddress({ ...address, city: text })} />
+          <Text style={styles.label}>Full Name</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons name="person-outline" size={20} color="gray" style={styles.icon} />
+            <TextInput 
+              style={styles.input} 
+              placeholder="Enter your full name" 
+              value={fullName} 
+              onChangeText={setFullName} 
+            />
+          </View>
 
-      <Text style={{ marginTop: 16 }}>About Me</Text>
-      <TextInput style={{ borderWidth: 1, padding: 12, borderRadius: 8, marginTop: 8, height: 80 }} placeholder="Tell us about yourself..." multiline value={aboutMe} onChangeText={setAboutMe} />
+          <TouchableOpacity
+            style={styles.uploadButton}
+            onPress={handleUploadID}
+          >
+            <Ionicons name="document" size={24} color="gray" />
+            <Text style={styles.uploadButtonText}>Upload License or State ID</Text>
+          </TouchableOpacity>
 
-      <TouchableOpacity style={{ backgroundColor: "blue", padding: 12, borderRadius: 8, alignItems: "center", marginTop: 16 }} onPress={handleSave}>
-        <Text style={{ color: "white" }}>Save</Text>
-      </TouchableOpacity>
-    </ScrollView>
+          <Text style={styles.label}>Date of Birth</Text>
+          <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowDatePicker(true)}>
+            <Text>{dateOfBirth.toDateString()}</Text>
+          </TouchableOpacity>
+          {showDatePicker && (
+            <DateTimePicker
+              value={dateOfBirth}
+              mode="date"
+              display="default"
+              onChange={(event, date) => {
+                setShowDatePicker(false);
+                if (date) setDateOfBirth(date);
+              }}
+            />
+          )}
+
+          <Text style={styles.label}>Gender</Text>
+          <View style={styles.pickerContainer}>
+            <Picker selectedValue={gender} onValueChange={(itemValue) => setGender(itemValue)}>
+              <Picker.Item label="Select gender" value="" />
+              <Picker.Item label="Male" value="male" />
+              <Picker.Item label="Female" value="female" />
+              <Picker.Item label="Other" value="other" />
+            </Picker>
+          </View>
+
+          <Text style={styles.label}>Travel Interests</Text>
+          <View style={styles.interestsContainer}>
+            {Object.keys(travelInterests).map((interest) => (
+              <View key={interest} style={styles.interestItem}>
+                <Checkbox 
+                  value={travelInterests[interest]} 
+                  onValueChange={(newValue) => setTravelInterests({ ...travelInterests, [interest]: newValue })} 
+                />
+                <Text style={styles.interestText}>{interest}</Text>
+              </View>
+            ))}
+          </View>
+
+          <Text style={styles.label}>Address</Text>
+          <TextInput 
+            style={styles.textInput} 
+            placeholder="Street Address" 
+            value={address.street} 
+            onChangeText={(text) => setAddress({ ...address, street: text })} 
+          />
+          <TextInput 
+            style={styles.textInput} 
+            placeholder="City" 
+            value={address.city} 
+            onChangeText={(text) => setAddress({ ...address, city: text })} 
+          />
+
+          <Text style={styles.label}>About Me</Text>
+          <TextInput 
+            style={styles.textAreaInput} 
+            placeholder="Tell us about yourself..." 
+            multiline 
+            value={aboutMe} 
+            onChangeText={setAboutMe} 
+          />
+
+          <TouchableOpacity 
+            style={[styles.saveButton, isLoading && styles.disabledButton]} 
+            onPress={handleSave}
+            disabled={isLoading}
+          >
+            <Text style={styles.saveButtonText}>{isLoading ? "Saving..." : "Save"}</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "white",
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: "white",
+  },
+  contentContainer: {
+    padding: 16,
+    paddingBottom: 32, // Extra padding at bottom to ensure content isn't cut off
+  },
+  profileImageContainer: {
+    alignItems: "center",
+    marginBottom: 16,
+    marginTop: 10,
+  },
+  profileImage: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 1,
+    borderColor: "#ddd"
+  },
+  cameraIcon: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: "gray",
+    padding: 5,
+    borderRadius: 12
+  },
+  changePhotoText: {
+    color: "gray",
+    marginTop: 8
+  },
+  label: {
+    marginTop: 16,
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 4
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    borderWidth: 1,
+    borderRadius: 8,
+    borderColor: "#ccc",
+    paddingHorizontal: 10,
+    marginTop: 5
+  },
+  icon: {
+    marginRight: 10
+  },
+  input: {
+    flex: 1,
+    height: 45,
+    fontSize: 16
+  },
+  uploadButton: {
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 16,
+    borderColor: "#ccc"
+  },
+  uploadButtonText: {
+    color: "gray",
+    marginTop: 4
+  },
+  datePickerButton: {
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 8,
+    borderColor: "#ccc"
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderRadius: 8,
+    borderColor: "#ccc"
+  },
+  interestsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap"
+  },
+  interestItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    margin: 8
+  },
+  interestText: {
+    marginLeft: 8
+  },
+  textInput: {
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+    borderColor: "#ccc"
+  },
+  textAreaInput: {
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
+    height: 80,
+    borderColor: "#ccc",
+    textAlignVertical: "top"
+  },
+  saveButton: {
+    backgroundColor: "blue",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 16,
+    marginBottom: 24
+  },
+  disabledButton: {
+    backgroundColor: "lightblue",
+  },
+  saveButtonText: {
+    color: "white",
+    fontWeight: "bold"
+  }
+});
 
 export default CreateProfile;

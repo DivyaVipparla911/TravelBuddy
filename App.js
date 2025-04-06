@@ -20,21 +20,21 @@ const ProfileStack = createStackNavigator();
 const ProfileCreationNavigator = () => {
   return (
     <ProfileStack.Navigator>
-      <ProfileStack.Screen 
-        name="CreateProfile" 
-        component={CreateProfileScreen} 
+      <ProfileStack.Screen
+        name="CreateProfile"
+        component={CreateProfileScreen}
         options={{ headerShown: false }}
       />
-      <ProfileStack.Screen 
-        name="VerifyIdentity" 
+      <ProfileStack.Screen
+        name="VerifyIdentity"
         component={VerifyIdentityScreen}
       />
-      <ProfileStack.Screen 
-        name="UploadLicense" 
+      <ProfileStack.Screen
+        name="UploadLicense"
         component={UploadLicenseScreen}
       />
-      <ProfileStack.Screen 
-        name="VerifyingSubmission" 
+      <ProfileStack.Screen
+        name="VerifyingSubmission"
         component={VerifyingSubmissionScreen}
       />
     </ProfileStack.Navigator>
@@ -49,22 +49,35 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        setUser(user);
+        
+        // Set up a real-time listener for the user document
         const userDocRef = doc(db, "users", user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists() && userDocSnap.data().profileCreated) {
-          setProfileCreated(true);
-        } else {
-          setProfileCreated(false);
-        }
-       //auth.signOut()
+        const unsubscribeDoc = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists() && docSnap.data().profileCreated) {
+            setProfileCreated(true);
+          } else {
+            setProfileCreated(false);
+          }
+          
+          // Only set loading to false after we've checked the profile status
+          setLoading(false);
+        });
+        
+        // Return a cleanup function that unsubscribes from both listeners
+        return () => {
+          unsubscribeDoc();
+        };
+      } else {
+        // No user is signed in
+        setUser(null);
+        setProfileCreated(false);
+        setLoading(false);
       }
-      setUser(user);
-      setLoading(false);
     });
+
     return () => unsubscribe(); // Cleanup listener on unmount
   }, []);
-
-  
 
   if (loading) {
     return (

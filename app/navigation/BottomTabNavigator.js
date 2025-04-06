@@ -28,7 +28,7 @@ const BottomTabNavigator = () => {
             } else if (route.name === "Add") {
               iconName = focused ? "add-circle" : "add-circle-outline";
             } else if (route.name === "Chat") {
-              iconName = focused ? "chat" : "chat-outline";
+              iconName = focused ? "chatbubble" : "chatbubble-outline";
             } else if (route.name === "Profile") {
               iconName = focused ? "person" : "person-outline";
             }
