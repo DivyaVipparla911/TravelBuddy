@@ -12,6 +12,7 @@ import VerifyingSubmissionScreen from "./app/screens/Profile/VerifyingSubmission
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { UserContextProvider } from "./app/contexts/UserContext";
+import { onSnapshot } from "firebase/firestore";
 
 const db = getFirestore();
 const Stack = createStackNavigator();
@@ -49,16 +50,31 @@ const MainNavigator = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        setUser(user);
+
+        // Set up a real-time listener for the user document
         const userDocRef = doc(db, "users", user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists() && userDocSnap.data().profileCreated) {
-          setProfileCreated(true);
-        } else {
-          setProfileCreated(false);
-        }
+        const unsubscribeDoc = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists() && docSnap.data().profileCreated) {
+            setProfileCreated(true);
+          } else {
+            setProfileCreated(false);
+          }
+
+          // Only set loading to false after we've checked the profile status
+          setLoading(false);
+        });
+
+        // Return a cleanup function that unsubscribes from both listeners
+        return () => {
+          unsubscribeDoc();
+        };
+      } else {
+        // No user is signed in
+        setUser(null);
+        setProfileCreated(false);
+        setLoading(false);
       }
-      setUser(user);
-      setLoading(false);
     });
     return () => unsubscribe();
   }, []);
