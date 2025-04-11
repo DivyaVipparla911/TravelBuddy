@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./app/config/firebase";
-import { getFirestore, doc, getDoc, onSnapshot } from "firebase/firestore";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
 import AuthNavigator from "./app/navigation/AuthNavigator";
 import BottomTabNavigator from "./app/navigation/BottomTabNavigator";
 import CreateProfileScreen from "./app/screens/Profile/CreateProfileScreen";
@@ -11,38 +11,38 @@ import UploadLicenseScreen from "./app/screens/Profile/UploadLicenseScreen";
 import VerifyingSubmissionScreen from "./app/screens/Profile/VerifyingSubmissionScreen";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
-import StartTripScreen from './app/screens/StartTripScreen';
+import { UserContextProvider } from "./app/contexts/UserContext";
+import { onSnapshot } from "firebase/firestore";
 
 const db = getFirestore();
 const Stack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 
-// Create a separate navigator for the profile creation flow
 const ProfileCreationNavigator = () => {
   return (
     <ProfileStack.Navigator>
-      <ProfileStack.Screen
-        name="CreateProfile"
-        component={CreateProfileScreen}
+      <ProfileStack.Screen 
+        name="CreateProfile" 
+        component={CreateProfileScreen} 
         options={{ headerShown: false }}
       />
-      <ProfileStack.Screen
-        name="VerifyIdentity"
+      <ProfileStack.Screen 
+        name="VerifyIdentity" 
         component={VerifyIdentityScreen}
       />
-      <ProfileStack.Screen
-        name="UploadLicense"
+      <ProfileStack.Screen 
+        name="UploadLicense" 
         component={UploadLicenseScreen}
       />
-      <ProfileStack.Screen
-        name="VerifyingSubmission"
+      <ProfileStack.Screen 
+        name="VerifyingSubmission" 
         component={VerifyingSubmissionScreen}
       />
     </ProfileStack.Navigator>
   );
 };
 
-export default function App() {
+const MainNavigator = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profileCreated, setProfileCreated] = useState(false);
@@ -51,7 +51,7 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUser(user);
-        
+
         // Set up a real-time listener for the user document
         const userDocRef = doc(db, "users", user.uid);
         const unsubscribeDoc = onSnapshot(userDocRef, (docSnap) => {
@@ -60,11 +60,11 @@ export default function App() {
           } else {
             setProfileCreated(false);
           }
-          
+
           // Only set loading to false after we've checked the profile status
           setLoading(false);
         });
-        
+
         // Return a cleanup function that unsubscribes from both listeners
         return () => {
           unsubscribeDoc();
@@ -76,8 +76,7 @@ export default function App() {
         setLoading(false);
       }
     });
-
-    return () => unsubscribe(); // Cleanup listener on unmount
+    return () => unsubscribe();
   }, []);
 
   if (loading) {
@@ -89,16 +88,24 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {!user ? (
-          <Stack.Screen name="Auth" component={AuthNavigator} />
-        ) : !profileCreated ? (
-          <Stack.Screen name="ProfileCreation" component={ProfileCreationNavigator} />
-        ) : (
-          <Stack.Screen name="BottomTab" component={BottomTabNavigator} />
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {!user ? (
+        <Stack.Screen name="Auth" component={AuthNavigator} />
+      ) : !profileCreated ? (
+        <Stack.Screen name="ProfileCreation" component={ProfileCreationNavigator} />
+      ) : (
+        <Stack.Screen name="BottomTab" component={BottomTabNavigator} />
+      )}
+    </Stack.Navigator>
+  );
+};
+
+export default function App() {
+  return (
+    <UserContextProvider>
+      <NavigationContainer>
+        <MainNavigator />
+      </NavigationContainer>
+    </UserContextProvider>
   );
 }
