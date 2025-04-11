@@ -7,13 +7,15 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "set-android-package": "expo config --type public --json | jq '.expo.android.package = \"com.divyavipparla.travelbuddy\"' > app.tmp.json && mv app.tmp.json app.json"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",
     "@expo/vector-icons": "^14.0.4",
     "@react-native-async-storage/async-storage": "^1.24.0",
-    "@react-native-community/datetimepicker": "^8.3.0",
+    "@react-native-community/datetimepicker": "8.2.0",
+    "@react-native-community/geolocation": "^3.4.0",
     "@react-native-picker/picker": "^2.11.0",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.17",
@@ -35,14 +37,19 @@
     "react-dom": "18.3.1",
     "react-native": "0.76.7",
     "react-native-gesture-handler": "^2.24.0",
+    "react-native-get-random-values": "^1.11.0",
+    "react-native-google-places-autocomplete": "^2.5.7",
+    "react-native-maps": "^1.20.1",
     "react-native-reanimated": "^3.17.1",
     "react-native-safe-area-context": "^4.14.1",
     "react-native-screens": "~4.4.0",
     "react-native-vector-icons": "^10.2.0",
-    "react-native-web": "~0.19.13"
+    "react-native-web": "~0.19.13",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.0"
+    "@babel/core": "^7.20.0",
+    "jq": "^1.7"
   },
   "private": true,
   "description": "",
@@ -56,5 +63,15 @@
   "bugs": {
     "url": "https://github.com/DivyaVipparla911/TravelBuddy/issues"
   },
-  "homepage": "https://github.com/DivyaVipparla911/TravelBuddy#readme"
+  "homepage": "https://github.com/DivyaVipparla911/TravelBuddy#readme",
+  "expo": {
+    "android": {
+      "package": "com.divyavipparla.travelbuddy",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDw26V3Tw0g6tXKWX5ruHx8nAl6eJrn7vI"
+        }
+      }
+    }
+  }
 }

@@ -11,6 +11,7 @@ import UploadLicenseScreen from "./app/screens/Profile/UploadLicenseScreen";
 import VerifyingSubmissionScreen from "./app/screens/Profile/VerifyingSubmissionScreen";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
+import StartTripScreen from './app/screens/StartTripScreen';
 
 const db = getFirestore();
 const Stack = createStackNavigator();

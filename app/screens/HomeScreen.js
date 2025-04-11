@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons'; // Import icons
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
 // Mock data simulating a database response
 const mockTripData = [
@@ -41,6 +41,20 @@ const mockTripData = [
   },
 ];
 
+const TripCard = ({ trip }) => (
+  <TouchableOpacity style={styles.tripCard}>
+    <Image source={trip.image} style={styles.tripImage} resizeMode="cover" />
+    <View style={styles.tripContent}>
+      <Text style={styles.tripTitle}>{trip.title}</Text>
+      <Text style={styles.tripDescription}>{trip.description}</Text>
+      <Text style={styles.tripType}>{trip.type}</Text>
+      <TouchableOpacity style={styles.joinButton}>
+        <Text style={styles.joinButtonText}>Join Trip</Text>
+      </TouchableOpacity>
+    </View>
+  </TouchableOpacity>
+);
+
 const HomeScreen = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -48,33 +62,26 @@ const HomeScreen = () => {
         {/* Header */}
         <View style={styles.buttonContainer}>
           <TouchableOpacity style={styles.button}>
-            <Ionicons name="ios-list" size={20} color="#000" /> {/* Icon for Trip Type */}
+            <Ionicons name="list" size={20} color="#000" />
             <Text style={styles.buttonText}>Trip Type</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.button}>
-            <MaterialIcons name="attach-money" size={20} color="#000" /> {/* Icon for Budget */}
+            <MaterialIcons name="attach-money" size={20} color="#000" />
             <Text style={styles.buttonText}>Budget</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.button}>
-            <MaterialIcons name="date-range" size={20} color="#000" /> {/* Icon for Dates */}
+            <MaterialIcons name="date-range" size={20} color="#000" />
             <Text style={styles.buttonText}>Dates</Text>
           </TouchableOpacity>
         </View>
 
         {/* Trip List */}
-        <ScrollView style={styles.tripList}>
+        <ScrollView 
+          style={styles.tripList}
+          contentContainerStyle={styles.tripListContent}
+        >
           {mockTripData.map((trip) => (
-            <TouchableOpacity key={trip.id} style={styles.tripCard}>
-              <Image source={ trip.image } style={styles.tripImage} resizeMode='contain'/>
-              <View style={styles.tripContent}>
-                <Text style={styles.tripTitle}>{trip.title}</Text>
-                <Text style={styles.tripDescription}>{trip.description}</Text>
-                <Text style={styles.tripType}>{trip.type}</Text>
-                <TouchableOpacity style={styles.joinButton}>
-                  <Text style={styles.joinButtonText}>Join Trip</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
+            <TripCard key={trip.id} trip={trip} />
           ))}
         </ScrollView>
       </View>
@@ -85,7 +92,7 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f8f8f8', // Match the header background color
+    backgroundColor: '#f8f8f8',
   },
   container: {
     flex: 1,
@@ -94,7 +101,7 @@ const styles = StyleSheet.create({
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 20, // Added padding to push buttons down
+    paddingTop: 20,
     paddingHorizontal: 20,
     paddingBottom: 10,
     backgroundColor: '#f8f8f8',
@@ -109,16 +116,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#ddd',
-    flexDirection: 'row', // Align icon and text horizontally
-    justifyContent: 'center', // Center content
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   buttonText: {
     color: '#000',
     fontWeight: 'bold',
-    marginLeft: 5, // Add space between icon and text
+    marginLeft: 5,
   },
   tripList: {
     flex: 1,
+  },
+  tripListContent: {
     padding: 20,
   },
   tripCard: {
@@ -126,13 +135,18 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: '#f8f8f8',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   tripImage: {
     width: '100%',
     height: 150,
   },
   tripContent: {
-    padding: 10,
+    padding: 15,
   },
   tripTitle: {
     fontSize: 18,
@@ -147,23 +161,21 @@ const styles = StyleSheet.create({
   tripType: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 10,
   },
   joinButton: {
-    marginTop: 10,
+    marginTop: 5,
     borderWidth: 1,
     borderColor: '#000',
     borderRadius: 5,
     padding: 10,
     alignItems: 'center',
     backgroundColor: '#000',
-    flexDirection: 'row', // Align icon and text horizontally
-    justifyContent: 'center', // Center content
   },
   joinButtonText: {
     fontSize: 14,
     color: '#fff',
     fontWeight: 'bold',
-    marginLeft: 5, // Add space between icon and text
   },
 });
 
