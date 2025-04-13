@@ -1,12 +1,17 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, Image, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, Image, StyleSheet, Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Camera } from "expo-camera";
+import { verifyIdentity } from '../../utils/faceVerification';
+import { getAuth } from 'firebase/auth';
 
 const UploadLicenseScreen = ({ navigation }) => {
-  const [frontImage, setFrontImage] = useState(null);
-  const [backImage, setBackImage] = useState(null);
+  const [idImage, setIdImage] = useState(null);
+  const [userImage, setUserImage] = useState(null);
   const [hasPermission, setHasPermission] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [verificationResult, setVerificationResult] = useState(null);
 
   // Request camera permission
   const requestCameraPermission = async () => {
@@ -24,7 +29,7 @@ const UploadLicenseScreen = ({ navigation }) => {
     });
 
     if (!result.canceled) {
-      side === "front" ? setFrontImage(result.assets[0].uri) : setBackImage(result.assets[0].uri);
+      side === "front" ? setIdImage(result.assets[0].uri) : setUserImage(result.assets[0].uri);
     }
   };
 
@@ -39,12 +44,54 @@ const UploadLicenseScreen = ({ navigation }) => {
       });
 
       if (!result.canceled) {
-        side === "front" ? setFrontImage(result.assets[0].uri) : setBackImage(result.assets[0].uri);
+        side === "front" ? setIdImage(result.assets[0].uri) : setUserImage(result.assets[0].uri);
       }
     } else {
       alert("Camera permission is required to take a photo.");
     }
   };
+
+  const handleVerification = async () => {
+    if (!idImage || !userImage) {
+      Alert.alert(
+        'Missing Images',
+        'Please upload both your ID and take a selfie to proceed with verification.'
+      );
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      // Get current user ID for Firebase Storage paths
+      const auth = getAuth();
+      const userId = auth.currentUser?.uid || `anonymous_${Date.now()}`;
+      
+      const result = await verifyIdentity(idImage, userImage);
+      setVerificationResult(result);
+
+      if (result.isVerified) {
+        // If match, navigate to success screen
+        setTimeout(() => {
+          navigation.navigate('VerifyingSubmission', { 
+            isVerified: true, 
+            message: result.message 
+          });
+        }, 1000);
+      } else {
+        setErrorMessage(result.message || 'Face and ID do not match. Please upload clear images again.');
+        
+        // Optionally reset images
+        setIdImage(null);
+        setUserImage(null);
+      }
+    } catch (error) {
+      Alert.alert('Verification Error', error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 
   return (
     <View style={styles.container}>
@@ -54,8 +101,8 @@ const UploadLicenseScreen = ({ navigation }) => {
       <View style={styles.uploadContainer}>
         {/* Front Side Upload */}
         <TouchableOpacity style={styles.uploadBox} onPress={() => pickImage("front")} onLongPress={() => takePhoto("front")}>
-          {frontImage ? (
-            <Image source={{ uri: frontImage }} style={styles.image} />
+          {idImage ? (
+            <Image source={{ uri: idImage }} style={styles.image} />
           ) : (
             <Text style={styles.uploadText}>Your Picture- Tap to Upload, Hold to Capture</Text>
           )}
@@ -63,19 +110,23 @@ const UploadLicenseScreen = ({ navigation }) => {
         
         {/* Back Side Upload */}
         <TouchableOpacity style={styles.uploadBox} onPress={() => pickImage("back")} onLongPress={() => takePhoto("back")}>
-          {backImage ? (
-            <Image source={{ uri: backImage }} style={styles.image} />
+          {userImage ? (
+            <Image source={{ uri: userImage }} style={styles.image} />
           ) : (
             <Text style={styles.uploadText}>ID Picture - Tap to Upload, Hold to Capture</Text>
           )}
         </TouchableOpacity>
       </View>
 
+      {errorMessage ? (
+        <Text style={styles.errorText}>{errorMessage}</Text>
+      ) : null}
+
       {/* Submit Button */}
       <TouchableOpacity
-        style={[styles.button, (!frontImage || !backImage) && styles.disabledButton]}
-        onPress={() => navigation.navigate("VerifyingSubmission")}
-        disabled={!frontImage || !backImage}
+        style={[styles.button, (!idImage || !userImage) && styles.disabledButton]}
+        onPress={handleVerification}
+        disabled={!idImage || !userImage}
       >
         <Text style={styles.buttonText}>Submit</Text>
       </TouchableOpacity>
@@ -104,6 +155,12 @@ const styles = StyleSheet.create({
   uploadContainer: {
     width: "100%",
     alignItems: "center",
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 14,
+    marginVertical: 10,
+    textAlign: 'center',
   },
   uploadBox: {
     width: "90%",

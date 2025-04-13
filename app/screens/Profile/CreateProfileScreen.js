@@ -8,7 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import defaultAvatar from "../../../assets/profile-pic.png";
 import { useNavigation } from "@react-navigation/native";
 import { auth } from "../../config/firebase";
-import { collection, doc, setDoc, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, setDoc, addDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { db } from "../../config/firebase";
 
 const CreateProfile = () => {
@@ -27,6 +27,7 @@ const CreateProfile = () => {
   const [address, setAddress] = useState({ street: "", city: "", state: "", zip: "" });
   const [aboutMe, setAboutMe] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
 
   const navigation = useNavigation();
 
@@ -36,8 +37,30 @@ const CreateProfile = () => {
       if (status !== "granted") {
         Alert.alert("Permission Required", "We need access to your camera roll to select images.");
       }
+      
+      await checkVerificationStatus();
     })();
   }, []);
+
+  const checkVerificationStatus = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+      
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+      
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        if (userData.isVerified) {
+          setIsVerified(true);
+          console.log("User is verified:", userData.isVerified);
+        }
+      }
+    } catch (error) {
+      console.error("Error checking verification status:", error);
+    }
+  };
 
   const pickImage = async (setImage) => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -81,10 +104,10 @@ const CreateProfile = () => {
         travelInterests: Object.keys(travelInterests).filter((key) => travelInterests[key]),
         address,
         aboutMe,
+        isVerified: isVerified,
         createdAt: serverTimestamp(),
       });
       
-      // Update the user document to mark profile as created
       const userDocRef = doc(db, "users", user.uid);
       await setDoc(userDocRef, { 
         profileCreated: true,
@@ -139,13 +162,30 @@ const CreateProfile = () => {
             />
           </View>
 
-          <TouchableOpacity
-            style={styles.uploadButton}
-            onPress={handleUploadID}
-          >
-            <Ionicons name="document" size={24} color="gray" />
-            <Text style={styles.uploadButtonText}>Upload License or State ID</Text>
-          </TouchableOpacity>
+          {isVerified ? (
+            <View style={styles.verificationContainer}>
+              <Text style={styles.label}>Verification Status</Text>
+              <View style={styles.verificationStatus}>
+                <Ionicons 
+                  name="checkmark-circle" 
+                  size={24} 
+                  color="#34C759" 
+                  style={styles.verificationIcon} 
+                />
+                <Text style={[styles.verificationText, {color: "#34C759"}]}>
+                  Verified
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.uploadButton}
+              onPress={handleUploadID}
+            >
+              <Ionicons name="document" size={24} color="gray" />
+              <Text style={styles.uploadButtonText}>Upload License or State ID</Text>
+            </TouchableOpacity>
+          )}
 
           <Text style={styles.label}>Date of Birth</Text>
           <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowDatePicker(true)}>
@@ -236,7 +276,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
-    paddingBottom: 32, // Extra padding at bottom to ensure content isn't cut off
+    paddingBottom: 32,
   },
   profileImageContainer: {
     alignItems: "center",
@@ -285,6 +325,25 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 45,
     fontSize: 16
+  },
+  verificationContainer: {
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 8,
+    borderColor: "#ccc",
+    borderWidth: 1,
+  },
+  verificationStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  verificationIcon: {
+    marginRight: 8,
+  },
+  verificationText: {
+    fontSize: 16,
+    fontWeight: "500",
   },
   uploadButton: {
     borderWidth: 1,
