@@ -4,7 +4,7 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Azure Face API configuration
 const FACE_API_KEY = ""; // Replace with your Azure Face API key
-const FACE_API_ENDPOINT = "https://face-id-travelbuddy.cognitiveservices.azure.com/face/v1.0"; // Replace with your endpoint
+const FACE_API_ENDPOINT = ""; // Replace with your endpoint
 
 /**
  * Uploads image to Firebase Storage and returns download URL

@@ -390,45 +390,51 @@ const ProfileScreen = () => {
           )}
         </View>
         
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Upcoming Trips</Text>
-          {upcomingTrips.length > 0 ? (
-            upcomingTrips.map((trip) => (
-              <View key={trip.id} style={styles.tripCard}>
-                <View style={styles.tripDetails}>
-                  <Text style={styles.tripName}>{trip.name}</Text>
-                  <Text style={styles.tripDate}>{formatDateRange(trip.startDate, trip.endDate)}</Text>
-                </View>
-                <View style={styles.tripStatus}>
-                  <Text style={[
-                    styles.statusText, 
-                    trip.status === "Confirmed" ? styles.confirmed : styles.lookingForCompanions
-                  ]}>
-                    {trip.status || "Looking for Companions"}
-                  </Text>
-                </View>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>No upcoming trips</Text>
-          )}
-        </View>
-        
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Past Trips</Text>
-          {pastTrips.length > 0 ? (
-            pastTrips.map((trip) => (
-              <View key={trip.id} style={styles.tripCard}>
-                <View style={styles.tripDetails}>
-                  <Text style={styles.tripName}>{trip.name}</Text>
-                  <Text style={styles.tripDate}>{formatDateRange(trip.startDate, trip.endDate)}</Text>
-                </View>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>No past trips</Text>
-          )}
-        </View>
+       {/* Trip Sections Container */}
+<View style={styles.tripSectionsContainer}>
+
+{/* My Trip Section */}
+<TouchableOpacity 
+  style={styles.tripSection} 
+  onPress={() => navigation.navigate("CurrentTrip")}
+>
+  <View style={styles.tripSectionInner}>
+    <Text style={styles.tripSectionTitle}>My Trip</Text>
+    <Ionicons name="chevron-forward" size={20} color="#555" />
+  </View>
+</TouchableOpacity>
+
+{/* Divider */}
+<View style={styles.divider} />
+
+{/* Upcoming Trip Section */}
+<TouchableOpacity 
+  style={styles.tripSection} 
+  onPress={() => navigation.navigate("UpcomingTrips")}
+>
+  <View style={styles.tripSectionInner}>
+    <Text style={styles.tripSectionTitle}>Upcoming Trip</Text>
+    <Ionicons name="chevron-forward" size={20} color="#555" />
+  </View>
+</TouchableOpacity>
+
+{/* Divider */}
+<View style={styles.divider} />
+
+{/* Past Trip Section */}
+<TouchableOpacity 
+  style={styles.tripSection} 
+  onPress={() => navigation.navigate("PastTrips")}
+>
+  <View style={styles.tripSectionInner}>
+    <Text style={styles.tripSectionTitle}>Past Trip</Text>
+    <Ionicons name="chevron-forward" size={20} color="#555" />
+  </View>
+</TouchableOpacity>
+
+</View> 
+      
+
         
         {isEditing ? (
           <View style={styles.editButtonsContainer}>
@@ -618,6 +624,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: 12,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
   aboutText: {
     fontSize: 14,
     lineHeight: 20,
@@ -669,6 +681,36 @@ const styles = StyleSheet.create({
   lookingForCompanions: {
     backgroundColor: "#fff3e0",
     color: "#ef6c00",
+  },
+  tripSectionsContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  tripSection: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  tripSectionInner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  tripSectionTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#f0f0f0',
+    marginHorizontal: 16,
   },
   emptyText: {
     color: "#777",
