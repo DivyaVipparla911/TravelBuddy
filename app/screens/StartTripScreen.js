@@ -9,7 +9,8 @@ import {
   TextInput,
   KeyboardAvoidingView,
   ScrollView,
-  Platform
+  Platform,
+  Image
 } from 'react-native';
 import { auth, db } from '../config/firebase';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
@@ -18,8 +19,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 import * as ImagePicker from 'expo-image-picker';
 
-
-const MAPS_KEY = "";
+const MAPS_KEY = "YOUR_GOOGLE_MAPS_API_KEY";
 
 const StartTripScreen = ({ navigation }) => {
   const [tripType, setTripType] = useState('');
@@ -30,7 +30,7 @@ const StartTripScreen = ({ navigation }) => {
   const [tripDescription, setTripDescription] = useState('');
   const [meetingPoint, setMeetingPoint] = useState({ address: '', lat: null, lng: null });
   const [tripPicture, setTripPicture] = useState(null);
-
+  const [isUploading, setIsUploading] = useState(false);
 
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
@@ -49,15 +49,30 @@ const StartTripScreen = ({ navigation }) => {
   };
 
   const pickTripImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow access to your photos to upload images');
+      return;
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      base64: true,
+      allowsEditing: true,
+      aspect: [4, 3],
       quality: 0.5,
     });
-  
-    if (!result.canceled) {
-      setTripPicture(result.assets[0].base64); // Store base64 string
-      // Or use `result.assets[0].uri` if you prefer URI instead
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setIsUploading(true);
+      try {
+        // Store only the local URI (for testing)
+        setTripPicture(result.assets[0].uri);
+      } catch (error) {
+        console.error('Error selecting image:', error);
+        Alert.alert('Error', 'Failed to select image. Please try again.');
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 
@@ -103,6 +118,11 @@ const StartTripScreen = ({ navigation }) => {
   };
 
   const handleStartTrip = async () => {
+    if (isUploading) {
+      Alert.alert('Please wait', 'Your image is still being processed');
+      return;
+    }
+
     if (
       !tripType ||
       !startingPoint.address ||
@@ -127,7 +147,8 @@ const StartTripScreen = ({ navigation }) => {
         endDate: endDate.toISOString(),
         tripDescription,
         meetingPoint,
-        tripPicture,
+        tripPicture, // Storing only the local URI (for testing)
+        createdAt: new Date().toISOString(),
       });
       Alert.alert('Success', 'Trip started successfully!');
       navigation.navigate('Home');
@@ -222,15 +243,20 @@ const StartTripScreen = ({ navigation }) => {
             multiline
           />
 
-          <TouchableOpacity style={styles.imageButton} onPress={pickTripImage}>
+          <TouchableOpacity 
+            style={styles.imageButton} 
+            onPress={pickTripImage}
+            disabled={isUploading}
+          >
             <Text style={styles.buttonText}>
-              {tripPicture ? 'Change Trip Picture' : 'Add Trip Picture'}
+              {isUploading ? 'Processing...' : 
+               tripPicture ? 'Change Trip Picture' : 'Add Trip Picture'}
             </Text>
           </TouchableOpacity>
 
           {tripPicture && (
             <Image
-              source={{ uri: `data:image/jpeg;base64,${tripPicture}` }}
+              source={{ uri: tripPicture }}
               style={{ width: '100%', height: 200, borderRadius: 10, marginTop: 10 }}
             />
           )}
@@ -248,7 +274,11 @@ const StartTripScreen = ({ navigation }) => {
             />
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={handleStartTrip}>
+          <TouchableOpacity 
+            style={[styles.button, isUploading && styles.disabledButton]} 
+            onPress={handleStartTrip}
+            disabled={isUploading}
+          >
             <Text style={styles.buttonText}>Start Trip</Text>
           </TouchableOpacity>
         </View>
@@ -331,6 +361,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 10,
     marginTop: 20,
+  },
+  disabledButton: {
+    backgroundColor: '#CCCCCC',
   },
   buttonText: {
     color: '#FFFFFF',
