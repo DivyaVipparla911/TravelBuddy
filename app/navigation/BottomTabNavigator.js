@@ -11,6 +11,7 @@ import VerifyIdentityScreen from "../screens/Profile/VerifyIdentityScreen";
 import UploadLicenseScreen from "../screens/Profile/UploadLicenseScreen";
 import VerifyingSubmissionScreen from "../screens/Profile/VerifyingSubmissionScreen";
 import StartTripScreen from "../screens/StartTripScreen";
+import HomeNavigator from "./HomeNavigator";
 
 const Tab = createBottomTabNavigator();
 
@@ -39,7 +40,7 @@ const BottomTabNavigator = () => {
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Home" component={HomeNavigator} />
       <Tab.Screen name="AITrips" component={AITripsNavigator} />
       <Tab.Screen name="Add" component={StartTripScreen} />
       <Tab.Screen name="Chat" component={ChatNavigator} />

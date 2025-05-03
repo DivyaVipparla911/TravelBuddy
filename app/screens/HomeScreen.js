@@ -1,89 +1,172 @@
-import React from 'react';
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { getAuth } from 'firebase/auth';
+import { collection, getDocs, getFirestore, query, where } from 'firebase/firestore';
 
-// Mock data simulating a database response
-const mockTripData = [
-  {
-    id: 1,
-    image: require('../../assets/pictures/bali.jpeg'),
-    title: 'Bali Adventure',
-    description: 'Explore the beautiful beaches and cultural sites',
-    type: '[Adventure] $$',
-  },
-  {
-    id: 2,
-    image: require('../../assets/pictures/tokyo.jpeg'),
-    title: 'Tokyo City Tour',
-    description: 'Experience the vibrant city life',
-    type: '[City Tour] $$$',
-  },
-  {
-    id: 3,
-    image: require('../../assets/pictures/hiking.jpeg'),
-    title: 'Mountain Hiking',
-    description: 'Trek through scenic mountain trails',
-    type: '[Adventure] $$',
-  },
-  {
-    id: 4,
-    image: require('../../assets/pictures/tokyo.jpeg'),
-    title: 'Historical Landmarks',
-    description: 'Visit ancient ruins and historical sites',
-    type: '[Cultural] $$',
-  },
-  {
-    id: 5,
-    image: require('../../assets/pictures/tokyo.jpeg'),
-    title: 'Beach Getaway',
-    description: 'Relax on pristine beaches',
-    type: '[Relaxation] $$$',
-  },
-];
-
-const TripCard = ({ trip }) => (
-  <TouchableOpacity style={styles.tripCard}>
-    <Image source={trip.image} style={styles.tripImage} resizeMode="cover" />
-    <View style={styles.tripContent}>
-      <Text style={styles.tripTitle}>{trip.title}</Text>
-      <Text style={styles.tripDescription}>{trip.description}</Text>
-      <Text style={styles.tripType}>{trip.type}</Text>
-      <TouchableOpacity style={styles.joinButton}>
-        <Text style={styles.joinButtonText}>Join Trip</Text>
-      </TouchableOpacity>
-    </View>
-  </TouchableOpacity>
-);
+const TripCard = ({ trip }) => {
+  const navigation = useNavigation();
+  
+  const handleJoinTrip = () => {
+    navigation.navigate('TripDetails', { tripId: trip.id });
+  };
+  
+  return (
+    <TouchableOpacity style={styles.tripCard} onPress={handleJoinTrip}>
+      <Image 
+        source={trip.imageUrl ? { uri: trip.imageUrl } : { uri: 'https://via.placeholder.com/300x150?text=No+Image' }} 
+        style={styles.tripImage} 
+        resizeMode="cover" 
+      />
+      <View style={styles.tripContent}>
+        <Text style={styles.tripTitle}>{trip.title}</Text>
+        <Text style={styles.tripDescription}>{trip.description}</Text>
+        <Text style={styles.tripType}>{trip.type}</Text>
+        <View style={styles.postedByContainer}>
+          <Text style={styles.postedBy}>Posted by: {trip.userName || 'Anonymous'}</Text>
+        </View>
+        <TouchableOpacity style={styles.joinButton} onPress={handleJoinTrip}>
+          <Text style={styles.joinButtonText}>Join Trip</Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 const HomeScreen = () => {
+  const [trips, setTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState({
+    tripType: null,
+    budget: null,
+    dates: null
+  });
+  
+  const auth = getAuth();
+  const currentUser = auth.currentUser;
+
+  useEffect(() => {
+    fetchTrips();
+  }, [filter]);
+
+  const fetchTrips = async () => {
+    try {
+      setLoading(true);
+      const db = getFirestore();
+      const tripsRef = collection(db, 'Trips'); // Fetch from 'Trips' collection
+      
+      // Create a base query to exclude trips created by the current user
+      let q = query(tripsRef, where('userId', '!=', currentUser.uid));
+      
+      // Add additional filters if they exist
+      if (filter.tripType) {
+        q = query(q, where('type', '==', filter.tripType));
+      }
+      
+      if (filter.budget) {
+        q = query(q, where('budget', '==', filter.budget));
+      }
+      
+      // Fetch data from Firestore
+      const querySnapshot = await getDocs(q);
+      let tripsList = [];
+
+      querySnapshot.forEach((doc) => {
+        const trip = { id: doc.id, ...doc.data() };
+        
+        // Optional client-side filtering
+        if (
+          (!filter.tripType || trip.type === filter.tripType) &&
+          (!filter.budget || trip.budget === filter.budget)
+        ) {
+          tripsList.push(trip);
+        }
+      });
+
+      setTrips(tripsList);
+    } catch (error) {
+      console.error('Error fetching trips:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTripTypeFilter = () => {
+    // Example toggle between 'Adventure' and null as trip type filter
+    setFilter(prev => ({
+      ...prev, 
+      tripType: prev.tripType ? null : 'Adventure'
+    }));
+  };
+
+  const handleBudgetFilter = () => {
+    // Example toggle between '$$' and null as budget filter
+    setFilter(prev => ({
+      ...prev, 
+      budget: prev.budget ? null : '$$'
+    }));
+  };
+
+  const handleDateFilter = () => {
+    // Example toggle for dates filter
+    setFilter(prev => ({
+      ...prev, 
+      dates: prev.dates ? null : 'upcoming'
+    }));
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header */}
+        {/* Header with Filters */}
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={styles.button}>
-            <Ionicons name="list" size={20} color="#000" />
-            <Text style={styles.buttonText}>Trip Type</Text>
+          <TouchableOpacity 
+            style={[styles.button, filter.tripType && styles.activeButton]} 
+            onPress={handleTripTypeFilter}
+          >
+            <Ionicons name="list" size={20} color={filter.tripType ? "#fff" : "#000"} />
+            <Text style={[styles.buttonText, filter.tripType && styles.activeButtonText]}>Trip Type</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button}>
-            <MaterialIcons name="attach-money" size={20} color="#000" />
-            <Text style={styles.buttonText}>Budget</Text>
+          
+          <TouchableOpacity 
+            style={[styles.button, filter.budget && styles.activeButton]} 
+            onPress={handleBudgetFilter}
+          >
+            <MaterialIcons name="attach-money" size={20} color={filter.budget ? "#fff" : "#000"} />
+            <Text style={[styles.buttonText, filter.budget && styles.activeButtonText]}>Budget</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.button}>
-            <MaterialIcons name="date-range" size={20} color="#000" />
-            <Text style={styles.buttonText}>Dates</Text>
+          
+          <TouchableOpacity 
+            style={[styles.button, filter.dates && styles.activeButton]} 
+            onPress={handleDateFilter}
+          >
+            <MaterialIcons name="date-range" size={20} color={filter.dates ? "#fff" : "#000"} />
+            <Text style={[styles.buttonText, filter.dates && styles.activeButtonText]}>Dates</Text>
           </TouchableOpacity>
         </View>
 
         {/* Trip List */}
-        <ScrollView 
-          style={styles.tripList}
-          contentContainerStyle={styles.tripListContent}
-        >
-          {mockTripData.map((trip) => (
-            <TripCard key={trip.id} trip={trip} />
-          ))}
-        </ScrollView>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#000" />
+            <Text style={styles.loadingText}>Loading trips...</Text>
+          </View>
+        ) : trips.length > 0 ? (
+          <ScrollView 
+            style={styles.tripList}
+            contentContainerStyle={styles.tripListContent}
+          >
+            {trips.map((trip) => (
+              <TripCard key={trip.id} trip={trip} />
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No trips found</Text>
+            <Text style={styles.emptySubText}>Try changing your filters or check back later!</Text>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -119,10 +202,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
   },
+  activeButton: {
+    backgroundColor: '#000',
+    borderColor: '#000',
+  },
   buttonText: {
     color: '#000',
     fontWeight: 'bold',
     marginLeft: 5,
+  },
+  activeButtonText: {
+    color: '#fff',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#666',
+  },
+  emptySubText: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 10,
+    textAlign: 'center',
   },
   tripList: {
     flex: 1,
@@ -161,7 +278,15 @@ const styles = StyleSheet.create({
   tripType: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 5,
+  },
+  postedByContainer: {
     marginBottom: 10,
+  },
+  postedBy: {
+    fontSize: 12,
+    color: '#888',
+    fontStyle: 'italic',
   },
   joinButton: {
     marginTop: 5,

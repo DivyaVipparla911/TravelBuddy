@@ -10,15 +10,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
-  ActivityIndicator
+  ActivityIndicator,
+  ScrollView
 } from 'react-native';
 import { auth, db } from '../config/firebase';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, GeoPoint } from 'firebase/firestore';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { format } from 'date-fns';
 
-const MAPS_KEY = "YOUR_GOOGLE_MAPS_API_KEY";
+const MAPS_KEY = "AIzaSyDw26V3Tw0g6tXKWX5ruHx8nAl6eJrn7vI";
 
 const StartTripScreen = ({ navigation }) => {
   // State declarations
@@ -27,7 +28,6 @@ const StartTripScreen = ({ navigation }) => {
     address: '', 
     lat: null, 
     lng: null,
-    photoUrl: null,
     placeId: null
   });
   const [destination, setDestination] = useState({ 
@@ -44,7 +44,6 @@ const StartTripScreen = ({ navigation }) => {
     address: '', 
     lat: null, 
     lng: null,
-    photoUrl: null,
     placeId: null
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -61,7 +60,7 @@ const StartTripScreen = ({ navigation }) => {
     console.log('Component mounted - API Key:', MAPS_KEY ? 'Loaded' : 'Missing');
   }, []);
 
-  // Fetch place photo from Google Places
+  // Fetch place photo from Google Places (only for destination)
   const fetchPlacePhoto = async (placeId) => {
     try {
       console.log('Fetching photo for place:', placeId);
@@ -81,8 +80,25 @@ const StartTripScreen = ({ navigation }) => {
     }
   };
 
-  // Handle place selection
-  const handlePlaceSelect = (ref, setState) => async (data, details = null) => {
+  // Handle place selection for starting point (no photo)
+  const handleStartingPointSelect = async (data, details = null) => {
+    if (!details) {
+      console.warn('No details for place:', data.description);
+      return;
+    }
+    
+    const address = data.description;
+    const lat = details.geometry?.location?.lat || null;
+    const lng = details.geometry?.location?.lng || null;
+    const placeId = details.place_id;
+    
+    setStartingPoint({ address, lat, lng, placeId });
+    startingPointRef.current?.setAddressText(address);
+    startingPointRef.current?.blur();
+  };
+
+  // Handle place selection for destination (with photo)
+  const handleDestinationSelect = async (data, details = null) => {
     if (!details) {
       console.warn('No details for place:', data.description);
       return;
@@ -96,16 +112,33 @@ const StartTripScreen = ({ navigation }) => {
     setIsLoading(true);
     try {
       const photoUrl = await fetchPlacePhoto(placeId);
-      console.log('Place selected:', { address, photoUrl: !!photoUrl });
-      setState({ address, lat, lng, photoUrl, placeId });
-      ref.current?.setAddressText(address);
-      ref.current?.blur();
+      console.log('Destination selected:', { address, photoUrl: !!photoUrl });
+      setDestination({ address, lat, lng, photoUrl, placeId });
+      destinationRef.current?.setAddressText(address);
+      destinationRef.current?.blur();
     } catch (error) {
-      console.error('Place selection error:', error);
-      setState({ address, lat, lng, photoUrl: null, placeId });
+      console.error('Destination selection error:', error);
+      setDestination({ address, lat, lng, photoUrl: null, placeId });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle place selection for meeting point (no photo)
+  const handleMeetingPointSelect = async (data, details = null) => {
+    if (!details) {
+      console.warn('No details for place:', data.description);
+      return;
+    }
+    
+    const address = data.description;
+    const lat = details.geometry?.location?.lat || null;
+    const lng = details.geometry?.location?.lng || null;
+    const placeId = details.place_id;
+    
+    setMeetingPoint({ address, lat, lng, placeId });
+    meetingPointRef.current?.setAddressText(address);
+    meetingPointRef.current?.blur();
   };
 
   // Date picker handlers
@@ -167,6 +200,14 @@ const StartTripScreen = ({ navigation }) => {
     }
     if (!validateDates()) return;
 
+    // Check if coordinates are valid for GeoPoint
+    if (!startingPoint.lat || !startingPoint.lng || 
+        !destination.lat || !destination.lng || 
+        !meetingPoint.lat || !meetingPoint.lng) {
+      Alert.alert('Error', 'Invalid location coordinates. Please try selecting locations again.');
+      return;
+    }
+
     setIsLoading(true);
     
     try {
@@ -176,13 +217,12 @@ const StartTripScreen = ({ navigation }) => {
         tripType,
         startingPoint: {
           address: startingPoint.address,
-          coordinates: new firebase.firestore.GeoPoint(startingPoint.lat, startingPoint.lng),
-          photoUrl: startingPoint.photoUrl,
+          coordinates: new GeoPoint(startingPoint.lat, startingPoint.lng),
           placeId: startingPoint.placeId
         },
         destination: {
           address: destination.address,
-          coordinates: new firebase.firestore.GeoPoint(destination.lat, destination.lng),
+          coordinates: new GeoPoint(destination.lat, destination.lng),
           photoUrl: destination.photoUrl,
           placeId: destination.placeId
         },
@@ -191,8 +231,7 @@ const StartTripScreen = ({ navigation }) => {
         tripDescription,
         meetingPoint: {
           address: meetingPoint.address,
-          coordinates: new firebase.firestore.GeoPoint(meetingPoint.lat, meetingPoint.lng),
-          photoUrl: meetingPoint.photoUrl,
+          coordinates: new GeoPoint(meetingPoint.lat, meetingPoint.lng),
           placeId: meetingPoint.placeId
         },
         createdAt: new Date().toISOString(),
@@ -212,15 +251,15 @@ const StartTripScreen = ({ navigation }) => {
     }
   };
 
-  // Render location picker component
-  const renderLocationPicker = (label, ref, setState, photoUrl, caption) => {
+  // Render location picker component for starting point and meeting point (no photo)
+  const renderSimpleLocationPicker = (label, ref, onPress) => {
     return (
       <>
         <Text style={styles.label}>{label}</Text>
         <View style={styles.autocompleteWrapper}>
           <GooglePlacesAutocomplete
             placeholder={`Enter ${label.toLowerCase()}`}
-            onPress={handlePlaceSelect(ref, setState)}
+            onPress={onPress}
             query={{
               key: MAPS_KEY,
               language: 'en',
@@ -241,14 +280,47 @@ const StartTripScreen = ({ navigation }) => {
             renderRow={(item) => <Text style={styles.placeItem}>{item.description}</Text>}
           />
         </View>
-        {photoUrl && (
+      </>
+    );
+  };
+
+  // Render location picker component for destination (with photo)
+  const renderDestinationPicker = () => {
+    return (
+      <>
+        <Text style={styles.label}>Destination</Text>
+        <View style={styles.autocompleteWrapper}>
+          <GooglePlacesAutocomplete
+            placeholder="Enter destination"
+            onPress={handleDestinationSelect}
+            query={{
+              key: MAPS_KEY,
+              language: 'en',
+              components: 'country:us',
+              types: ['geocode', 'establishment']
+            }}
+            styles={{
+              textInput: styles.input,
+              listView: styles.dropdown,
+              description: styles.placeDescription
+            }}
+            ref={destinationRef}
+            fetchDetails
+            enablePoweredByContainer={false}
+            debounce={300}
+            keepResultsAfterBlur={false}
+            listViewDisplayed="auto"
+            renderRow={(item) => <Text style={styles.placeItem}>{item.description}</Text>}
+          />
+        </View>
+        {destination.photoUrl && (
           <View style={styles.photoContainer}>
             <Image
-              source={{ uri: photoUrl }}
+              source={{ uri: destination.photoUrl }}
               style={styles.locationPhoto}
               resizeMode="cover"
             />
-            <Text style={styles.photoCaption}>{caption}</Text>
+            <Text style={styles.photoCaption}>Destination</Text>
           </View>
         )}
       </>
@@ -273,14 +345,20 @@ const StartTripScreen = ({ navigation }) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
     >
-      <View style={styles.innerContainer}>
-        <Text style={styles.title}>Start New Trip</Text>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={true}
+      >
+        <View style={styles.innerContainer}>
+          <Text style={styles.title}>Start New Trip</Text>
 
-        {isLoading && (
-          <View style={styles.overlayLoader}>
-            <ActivityIndicator size="large" color="#0000ff" />
-          </View>
-        )}
+          {isLoading && (
+            <View style={styles.overlayLoader}>
+              <ActivityIndicator size="large" color="#0000ff" />
+            </View>
+          )}
 
         {/* Trip Type Input */}
         <Text style={styles.label}>Trip Type</Text>
@@ -291,22 +369,15 @@ const StartTripScreen = ({ navigation }) => {
           onChangeText={setTripType}
         />
 
-        {/* Location Pickers */}
-        {renderLocationPicker(
+        {/* Starting Point Picker (no photo) */}
+        {renderSimpleLocationPicker(
           'Current Location', 
           startingPointRef, 
-          setStartingPoint, 
-          startingPoint.photoUrl,
-          'Starting Point'
+          handleStartingPointSelect
         )}
 
-        {renderLocationPicker(
-          'Destination', 
-          destinationRef, 
-          setDestination, 
-          destination.photoUrl,
-          'Destination'
-        )}
+        {/* Destination Picker (with photo) */}
+        {renderDestinationPicker()}
 
         {/* Date Pickers */}
         <Text style={styles.label}>Trip Dates</Text>
@@ -354,13 +425,11 @@ const StartTripScreen = ({ navigation }) => {
           numberOfLines={4}
         />
 
-        {/* Meeting Point */}
-        {renderLocationPicker(
+        {/* Meeting Point Picker (no photo) */}
+        {renderSimpleLocationPicker(
           'Meeting Point', 
           meetingPointRef, 
-          setMeetingPoint, 
-          meetingPoint.photoUrl,
-          'Meeting Point'
+          handleMeetingPointSelect
         )}
 
         {/* Submit Button */}
@@ -375,7 +444,8 @@ const StartTripScreen = ({ navigation }) => {
             <Text style={styles.buttonText}>Start Trip</Text>
           )}
         </TouchableOpacity>
-      </View>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
@@ -385,10 +455,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  innerContainer: {
+  scrollView: {
     flex: 1,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
+  },
+  innerContainer: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 80,
   },
   title: {
     fontSize: 24,
@@ -433,7 +508,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 5,
-    maxHeight: 200,
+    maxHeight: 150,
     elevation: 3,
     zIndex: 1000,
   },
