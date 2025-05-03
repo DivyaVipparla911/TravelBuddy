@@ -10,7 +10,7 @@ import {
   SafeAreaView,
   StatusBar
 } from "react-native";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { useNavigation } from "@react-navigation/native";
 import { db } from "../config/firebase";
 import { useUserContext } from "../contexts/UserContext";
@@ -30,30 +30,110 @@ const ChatListScreen = () => {
       return;
     }
     
+    console.log("Current user ID:", user.uid);
+    
     const q = query(
       collection(db, "chats"),
       where("participants", "array-contains", user.uid)
     );
     
     const unsubscribe = onSnapshot(q,
-      (snapshot) => {
+      async (snapshot) => {
         try {
-          const chatData = snapshot.docs.map(doc => {
-            const data = doc.data();
-            
-            // Convert any potential objects to strings to avoid direct rendering
-            const processedData = {
-              id: doc.id,
-              participants: Array.isArray(data.participants) ? data.participants : [],
-              lastMessage: typeof data.lastMessage === 'string' ? data.lastMessage : 'No messages yet',
-              otherUserName: typeof data.otherUserName === 'string' ? data.otherUserName : 'Unknown User',
-              // Skip timestamp for now as ChatListItem doesn't use it
-            };
-            
-            return processedData;
-          });
+          console.log("Chats snapshot received, docs count:", snapshot.docs.length);
           
-          setChats(chatData);
+          // First get all basic chat data
+          const basicChatData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          
+          console.log("Basic chat data:", JSON.stringify(basicChatData, null, 2));
+          
+          // Then fetch usernames for each chat
+          const chatsWithUserNames = await Promise.all(
+            basicChatData.map(async (chat) => {
+              // Find the other user's ID
+              const otherUserId = chat.participants?.find(id => id !== user.uid);
+              
+              console.log("Found other user ID:", otherUserId);
+              
+              if (!otherUserId) {
+                console.log("No other user ID found in chat");
+                return {
+                  ...chat,
+                  otherUserName: "Unknown User"
+                };
+              }
+              
+              // Fetch the other user's data from Firestore - specifically looking for fullName
+              try {
+                // Try fetching from "Profiles" collection first
+                console.log("Fetching user profile from Profiles collection for ID:", otherUserId);
+                const userDocRef = doc(db, "Profiles", otherUserId);
+                const userDocSnap = await getDoc(userDocRef);
+                
+                if (userDocSnap.exists()) {
+                  const userData = userDocSnap.data();
+                  console.log("User data found:", JSON.stringify(userData, null, 2));
+                  // Use the fullName field based on your Firebase structure
+                  const fullName = userData.fullName || "Unknown User";
+                  console.log("Using fullName:", fullName);
+                  
+                  return {
+                    ...chat,
+                    otherUserName: fullName,
+                    otherUserPhoto: userData.profileImage || userData.idImage || null
+                  };
+                } else {
+                  console.log("User doc doesn't exist in Profiles, trying users collection");
+                  
+                  // Try the "users" collection as a fallback
+                  const usersDocRef = doc(db, "users", otherUserId);
+                  const usersDocSnap = await getDoc(usersDocRef);
+                  
+                  if (usersDocSnap.exists()) {
+                    const userData = usersDocSnap.data();
+                    console.log("User data found in users collection:", JSON.stringify(userData, null, 2));
+                    const fullName = userData.fullName || userData.displayName || userData.name || "Unknown User";
+                    console.log("Using fullName from users collection:", fullName);
+                    
+                    return {
+                      ...chat,
+                      otherUserName: fullName,
+                      otherUserPhoto: userData.profileImage || userData.photoURL || null
+                    };
+                  } else {
+                    console.log("User not found in either collection");
+                    return {
+                      ...chat,
+                      otherUserName: "Unknown User"
+                    };
+                  }
+                }
+              } catch (error) {
+                console.error("Error fetching user data:", error);
+                return {
+                  ...chat,
+                  otherUserName: "Unknown User"
+                };
+              }
+            })
+          );
+          
+          console.log("Chats with user names:", JSON.stringify(chatsWithUserNames, null, 2));
+          
+          // Process the data to ensure it's safe to render
+          const processedChats = chatsWithUserNames.map(chat => ({
+            id: chat.id,
+            participants: Array.isArray(chat.participants) ? chat.participants : [],
+            lastMessage: typeof chat.lastMessage === 'string' ? chat.lastMessage : 'No messages yet',
+            otherUserName: chat.otherUserName,
+            otherUserPhoto: chat.otherUserPhoto,
+            timestamp: chat.timestamp
+          }));
+          
+          setChats(processedChats);
           setError(null);
         } catch (e) {
           console.error("Error processing chats:", e);
