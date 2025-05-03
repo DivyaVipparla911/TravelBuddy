@@ -7,14 +7,19 @@ import {
   Alert,
   StyleSheet,
   Image,
+  ActivityIndicator
 } from "react-native";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { 
+  signInWithEmailAndPassword, 
+  sendPasswordResetEmail 
+} from "firebase/auth";
 import { auth } from "../../config/firebase";
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [forgotPassword, setForgotPassword] = useState(false); // Toggle state
+  const [forgotPassword, setForgotPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     try {
@@ -25,43 +30,57 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
-  const handleSendOTP = () => {
+  const handlePasswordReset = async () => {
     if (!email) {
       Alert.alert("Error", "Please enter your email address.");
       return;
     }
-    Alert.alert("OTP Sent", "Please check your email for the OTP.");
+
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      Alert.alert(
+        "Email Sent", 
+        "Password reset link has been sent to your email.",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              setForgotPassword(false);
+              setLoading(false);
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert("Error", error.message);
+      setLoading(false);
+    }
   };
 
   return (
     <View style={styles.container}>
       {forgotPassword ? (
-        // Forgot Password UI
+        // Forgot Password Screen
         <View style={styles.forgotContainer}>
-          {/* Back Button */}
           <TouchableOpacity
             onPress={() => setForgotPassword(false)}
             style={styles.backButton}
           >
-            <Text style={styles.backText}>← Forgot Password</Text>
+            <Text style={styles.backText}>← Back to Login</Text>
           </TouchableOpacity>
 
-          {/* Lock Icon */}
           <Image
             source={require("../../../assets/lock.png")}
             style={styles.icon}
           />
 
-          {/* Title */}
           <Text style={styles.title}>Reset Password</Text>
 
-          {/* Description */}
           <Text style={styles.description}>
-            Enter your email address and we'll send you an OTP to reset your
-            password
+            Enter your email to receive a password reset link
           </Text>
 
-          {/* Email Input */}
           <Text style={styles.label}>Email Address</Text>
           <TextInput
             placeholder="Enter your email"
@@ -72,18 +91,20 @@ const LoginScreen = ({ navigation }) => {
             keyboardType="email-address"
           />
 
-          {/* Send OTP Button */}
-          <TouchableOpacity onPress={handleSendOTP} style={styles.sendOtpButton}>
-            <Text style={styles.sendOtpText}>Send OTP</Text>
-          </TouchableOpacity>
-
-          {/* Back to Login */}
-          <TouchableOpacity onPress={() => setForgotPassword(false)}>
-            <Text style={styles.backToLogin}>Back to Login</Text>
+          <TouchableOpacity 
+            onPress={handlePasswordReset} 
+            style={styles.sendOtpButton}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.sendOtpText}>Send Reset Link</Text>
+            )}
           </TouchableOpacity>
         </View>
       ) : (
-        // Login UI
+        // Login Screen
         <>
           <Image
             source={require("../../../assets/logo.png")}
@@ -93,7 +114,6 @@ const LoginScreen = ({ navigation }) => {
           <View style={styles.box}>
             <Text style={styles.title}>Welcome</Text>
 
-            {/* Email/Mobile Input */}
             <Text style={styles.label}>Email</Text>
             <TextInput
               placeholder="Enter your email"
@@ -103,7 +123,6 @@ const LoginScreen = ({ navigation }) => {
               autoCapitalize="none"
             />
 
-            {/* Password Input */}
             <Text style={styles.label}>Password</Text>
             <TextInput
               placeholder="Enter your password"
@@ -113,12 +132,10 @@ const LoginScreen = ({ navigation }) => {
               onChangeText={setPassword}
             />
 
-            {/* Login Button */}
             <TouchableOpacity onPress={handleLogin} style={styles.loginButton}>
               <Text style={styles.loginText}>Log In</Text>
             </TouchableOpacity>
 
-            {/* Forgot Password Link */}
             <View style={styles.forgotPasswordContainer}>
               <TouchableOpacity onPress={() => setForgotPassword(true)}>
                 <Text style={styles.forgotPassword}>
@@ -127,7 +144,6 @@ const LoginScreen = ({ navigation }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Sign Up Link */}
             <View style={styles.signupContainer}>
               <Text style={styles.signupText}>Don't have an account? </Text>
               <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
@@ -140,6 +156,9 @@ const LoginScreen = ({ navigation }) => {
     </View>
   );
 };
+
+// ... (keep your existing styles)
+// ... (keep your existing styles)
 
 const styles = StyleSheet.create({
   container: {
