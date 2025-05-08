@@ -16,9 +16,11 @@ app.use(bodyParser.json());
 
 // Import routes
 const recommendationRoutes = require('./routes/recommendTrip');
+const emailRoute = require('./routes/sendJoinRequestEmail');
 
 // Use routes
-app.use(recommendationRoutes);
+app.use('/', recommendationRoutes);
+app.use('/', emailRoute);
 
 // Basic route for testing
 app.get('/', (req, res) => {

@@ -111,7 +111,8 @@ const CreateProfile = () => {
       const userDocRef = doc(db, "users", user.uid);
       await setDoc(userDocRef, { 
         profileCreated: true,
-        fullName: fullName 
+        fullName: fullName,
+        email: user.email,
       }, { merge: true });
 
       console.log("Profile saved successfully!");
