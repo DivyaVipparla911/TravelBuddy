@@ -29,6 +29,7 @@ Top 3 activities:
 - [Activity 1]
 - [Activity 2]
 - [Activity 3]
+Plan the itinery for the duration of the trip
 
 ... and so on for all 10 destinations
 `;

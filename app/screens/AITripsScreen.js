@@ -47,6 +47,10 @@ const AIRecommendationsScreen = () => {
         recommendations: response.data.recommendation,
         userQuery,
       });
+      // navigation.navigate('RecommendationResults', {
+      //   recommendations: aiResponse.text, // The raw AI response text
+      //   userQuery: searchQuery // What the user searched for
+      // });
     } catch (err) {
       console.error(err);
       alert('Failed to fetch recommendations. Please try again.');

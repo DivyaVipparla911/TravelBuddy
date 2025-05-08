@@ -1,307 +1,254 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import { getAuth } from 'firebase/auth';
-import { collection, getDocs, getFirestore, query, where } from 'firebase/firestore';
-
-const TripCard = ({ trip }) => {
-  const navigation = useNavigation();
-  
-  const handleJoinTrip = () => {
-    navigation.navigate('TripDetails', { tripId: trip.id });
-  };
-  
-  return (
-    <TouchableOpacity style={styles.tripCard} onPress={handleJoinTrip}>
-      <Image 
-        source={trip.imageUrl ? { uri: trip.imageUrl } : { uri: 'https://via.placeholder.com/300x150?text=No+Image' }} 
-        style={styles.tripImage} 
-        resizeMode="cover" 
-      />
-      <View style={styles.tripContent}>
-        <Text style={styles.tripTitle}>{trip.title}</Text>
-        <Text style={styles.tripDescription}>{trip.description}</Text>
-        <Text style={styles.tripType}>{trip.type}</Text>
-        <View style={styles.postedByContainer}>
-          <Text style={styles.postedBy}>Posted by: {trip.userName || 'Anonymous'}</Text>
-        </View>
-        <TouchableOpacity style={styles.joinButton} onPress={handleJoinTrip}>
-          <Text style={styles.joinButtonText}>Join Trip</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
-};
+// HomeScreen.js
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  ActivityIndicator,
+  TextInput,
+  SafeAreaView
+} from "react-native";
+import { collection, getDocs } from "firebase/firestore";
+import { firestore } from "../config/firebase";
+import { useNavigation } from "@react-navigation/native";
 
 const HomeScreen = () => {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState({
-    tripType: null,
-    budget: null,
-    dates: null
-  });
-  
-  const auth = getAuth();
-  const currentUser = auth.currentUser;
+  const navigation = useNavigation();
 
   useEffect(() => {
+    const fetchTrips = async () => {
+      try {
+        const snapshot = await getDocs(collection(firestore, "Trips"));
+        const tripsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setTrips(tripsData);
+      } catch (error) {
+        console.error("Error fetching trips: ", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchTrips();
-  }, [filter]);
+  }, []);
 
-  const fetchTrips = async () => {
-    try {
-      setLoading(true);
-      const db = getFirestore();
-      const tripsRef = collection(db, 'Trips'); // Fetch from 'Trips' collection
-      
-      // Create a base query to exclude trips created by the current user
-      let q = query(tripsRef, where('userId', '!=', currentUser.uid));
-      
-      // Add additional filters if they exist
-      if (filter.tripType) {
-        q = query(q, where('type', '==', filter.tripType));
-      }
-      
-      if (filter.budget) {
-        q = query(q, where('budget', '==', filter.budget));
-      }
-      
-      // Fetch data from Firestore
-      const querySnapshot = await getDocs(q);
-      let tripsList = [];
-
-      querySnapshot.forEach((doc) => {
-        const trip = { id: doc.id, ...doc.data() };
-        
-        // Optional client-side filtering
-        if (
-          (!filter.tripType || trip.type === filter.tripType) &&
-          (!filter.budget || trip.budget === filter.budget)
-        ) {
-          tripsList.push(trip);
-        }
-      });
-
-      setTrips(tripsList);
-    } catch (error) {
-      console.error('Error fetching trips:', error);
-    } finally {
-      setLoading(false);
-    }
+  const handleJoinTrip = (tripId) => {
+    navigation.navigate("TripDetails", { 
+      tripId: tripId,
+    });
   };
 
-  const handleTripTypeFilter = () => {
-    // Example toggle between 'Adventure' and null as trip type filter
-    setFilter(prev => ({
-      ...prev, 
-      tripType: prev.tripType ? null : 'Adventure'
-    }));
-  };
+  const renderTrip = ({ item }) => {
+    const {
+      destination,
+      photoUrl,
+      tripType,
+      description = "Explore the beautiful destination",
+      price = "$$$"
+    } = item;
 
-  const handleBudgetFilter = () => {
-    // Example toggle between '$$' and null as budget filter
-    setFilter(prev => ({
-      ...prev, 
-      budget: prev.budget ? null : '$$'
-    }));
-  };
+    // Use the first part of the address or a default destination name
+    const destinationName = destination?.address?.split(',')[0] || "Unknown Destination";
 
-  const handleDateFilter = () => {
-    // Example toggle for dates filter
-    setFilter(prev => ({
-      ...prev, 
-      dates: prev.dates ? null : 'upcoming'
-    }));
+    return (
+      <View style={styles.tripCard}>
+        <View style={styles.tripImageContainer}>
+          {photoUrl ? (
+            <Image 
+              source={{ uri: photoUrl }}
+              style={styles.tripImage} 
+              onError={(e) => console.log("Image load error:", e.nativeEvent.error)}
+            />
+          ) : (
+            <View style={[styles.tripImage, styles.defaultImage]}>
+              <Text style={styles.imageText}>Trip Image</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.tripContent}>
+          <Text style={styles.tripTitle}>{destinationName}</Text>
+          <Text style={styles.tripDescription}>{description}</Text>
+          
+          <View style={styles.tripTagsRow}>
+            <View style={styles.tripTypeTag}>
+              <Text style={styles.tripTypeText}>{tripType || "Adventure"}</Text>
+            </View>
+            <Text style={styles.tripPrice}>{price}</Text>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.joinButton}
+            onPress={() => handleJoinTrip(item.id)}
+          >
+            <Text style={styles.joinButtonText}>Join Trip</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        {/* Header with Filters */}
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity 
-            style={[styles.button, filter.tripType && styles.activeButton]} 
-            onPress={handleTripTypeFilter}
-          >
-            <Ionicons name="list" size={20} color={filter.tripType ? "#fff" : "#000"} />
-            <Text style={[styles.buttonText, filter.tripType && styles.activeButtonText]}>Trip Type</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.button, filter.budget && styles.activeButton]} 
-            onPress={handleBudgetFilter}
-          >
-            <MaterialIcons name="attach-money" size={20} color={filter.budget ? "#fff" : "#000"} />
-            <Text style={[styles.buttonText, filter.budget && styles.activeButtonText]}>Budget</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.button, filter.dates && styles.activeButton]} 
-            onPress={handleDateFilter}
-          >
-            <MaterialIcons name="date-range" size={20} color={filter.dates ? "#fff" : "#000"} />
-            <Text style={[styles.buttonText, filter.dates && styles.activeButtonText]}>Dates</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Trip List */}
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#000" />
-            <Text style={styles.loadingText}>Loading trips...</Text>
-          </View>
-        ) : trips.length > 0 ? (
-          <ScrollView 
-            style={styles.tripList}
-            contentContainerStyle={styles.tripListContent}
-          >
-            {trips.map((trip) => (
-              <TripCard key={trip.id} trip={trip} />
-            ))}
-          </ScrollView>
-        ) : (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No trips found</Text>
-            <Text style={styles.emptySubText}>Try changing your filters or check back later!</Text>
-          </View>
-        )}
+    <SafeAreaView style={styles.container}>
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search destinations, trips, activities..."
+          placeholderTextColor="#999"
+        />
       </View>
+      
+      <View style={styles.filterRow}>
+        <TouchableOpacity style={styles.filterButton}>
+          <Text style={styles.filterText}>Trip Type</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.filterButton}>
+          <Text style={styles.filterText}>Budget</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.filterButton}>
+          <Text style={styles.filterText}>Dates</Text>
+        </TouchableOpacity>
+      </View>
+      
+      {loading ? (
+        <ActivityIndicator size="large" color="#2196F3" style={styles.loader} />
+      ) : (
+        <FlatList
+          data={trips}
+          renderItem={renderTrip}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f8f8f8',
-  },
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: "#f5f5f5",
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingTop: 20,
-    paddingHorizontal: 20,
+  searchContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 10,
-    backgroundColor: '#f8f8f8',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
   },
-  button: {
-    backgroundColor: '#fff',
-    padding: 10,
+  searchInput: {
+    backgroundColor: "#fff",
     borderRadius: 20,
-    width: '30%',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  activeButton: {
-    backgroundColor: '#000',
-    borderColor: '#000',
-  },
-  buttonText: {
-    color: '#000',
-    fontWeight: 'bold',
-    marginLeft: 5,
-  },
-  activeButtonText: {
-    color: '#fff',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     fontSize: 16,
-    color: '#666',
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+  filterRow: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    justifyContent: "flex-start",
   },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#666',
+  filterButton: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
-  emptySubText: {
+  filterText: {
     fontSize: 14,
-    color: '#999',
-    marginTop: 10,
-    textAlign: 'center',
+    color: "#333",
   },
-  tripList: {
-    flex: 1,
+  loader: {
+    marginTop: 40,
   },
-  tripListContent: {
-    padding: 20,
+  list: {
+    padding: 16,
   },
   tripCard: {
-    marginBottom: 20,
+    backgroundColor: "#fff",
     borderRadius: 10,
-    overflow: 'hidden',
-    backgroundColor: '#f8f8f8',
+    marginBottom: 20,
+    overflow: "hidden",
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+  },
+  tripImageContainer: {
+    width: "100%",
+    height: 180,
+    backgroundColor: "#ddd",
   },
   tripImage: {
-    width: '100%',
-    height: 150,
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  defaultImage: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  imageText: {
+    color: "#777",
+    fontSize: 16,
   },
   tripContent: {
-    padding: 15,
+    padding: 16,
   },
   tripTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 5,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 4,
   },
   tripDescription: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
+    color: "#666",
+    marginBottom: 12,
+    lineHeight: 20,
   },
-  tripType: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
+  tripTagsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
   },
-  postedByContainer: {
-    marginBottom: 10,
+  tripTypeTag: {
+    backgroundColor: "#f5f5f5",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
-  postedBy: {
+  tripTypeText: {
     fontSize: 12,
-    color: '#888',
-    fontStyle: 'italic',
+    color: "#666",
+  },
+  tripPrice: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#666",
   },
   joinButton: {
-    marginTop: 5,
-    borderWidth: 1,
-    borderColor: '#000',
-    borderRadius: 5,
-    padding: 10,
-    alignItems: 'center',
-    backgroundColor: '#000',
+    backgroundColor: "#000",
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
   },
   joinButtonText: {
-    fontSize: 14,
-    color: '#fff',
-    fontWeight: 'bold',
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
   },
+
 });
 
 export default HomeScreen;

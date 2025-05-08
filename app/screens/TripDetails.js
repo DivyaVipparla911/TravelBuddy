@@ -1,92 +1,256 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  SafeAreaView,
+  ActivityIndicator,
+  Alert
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { db, auth } from '../config/firebase';
+import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios';
+
+// API config - Consider moving this to an environment config file
+const API_BASE_URL = 'http://localhost:5001';
 
 const TripDetailsScreen = ({ route }) => {
   const { tripId } = route.params;
   const [trip, setTrip] = useState(null);
+  const [creator, setCreator] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isJoining, setIsJoining] = useState(false); // State to track join request in progress
   const navigation = useNavigation();
+  const currentUser = auth.currentUser;
 
   useEffect(() => {
-    const fetchTripDetails = async () => {
+    const fetchData = async () => {
       try {
-        // In a real app, fetch the trip from Firebase
-        const tripDoc = doc(db, 'trips', tripId);
-        const tripSnapshot = await getDoc(tripDoc);
+        setLoading(true);
+        setError(null);
         
-        if (tripSnapshot.exists()) {
-          setTrip({ id: tripSnapshot.id, ...tripSnapshot.data() });
-        } else {
-          // For demo purposes, use mock data if Firebase fetch fails
-          // In production, you would show an error message
-          const mockTrip = {
-            id: tripId,
-            title: "Mountain Hiking Trip",
-            location: "Mount Rainier, Washington",
-            startDate: "March 15, 2025",
-            endDate: "March 17, 2025",
-            price: 120,
-            description: "Join us for an exciting 3-day hiking adventure at Mount Rainier. Experience breathtaking views, professional guidance, and meet fellow hiking enthusiasts. All equipment and meals included.",
-            hostName: "John Smith",
-            hostAvatar: null, // You can add a default avatar path
-            spotsLeft: 4,
-            duration: "3 days, 2 nights",
-            difficultyLevel: "Intermediate Level",
-            included: ["Equipment", "Meals", "Guide", "Transport"]
-          };
-          setTrip(mockTrip);
+        // 1. Fetch trip details
+        const tripRef = doc(db, 'Trips', tripId);
+        const tripSnap = await getDoc(tripRef);
+        
+        if (!tripSnap.exists()) {
+          throw new Error('Trip not found');
         }
+        
+        const tripData = tripSnap.data();
+        
+        // 2. Fetch creator details
+        if (!tripData.userId) {
+          throw new Error('Trip creator not specified');
+        }
+        
+        const creatorRef = doc(db, 'users', tripData.userId);
+        const creatorSnap = await getDoc(creatorRef);
+        
+        if (!creatorSnap.exists()) {
+          throw new Error('Trip creator not found');
+        }
+        
+        const creatorData = creatorSnap.data();
+        
+        // Set states
+        setTrip({
+          id: tripSnap.id,
+          title: tripData.title || 'Untitled Trip',
+          location: tripData.destination?.address || 'Location not specified',
+          startDate: tripData.startDate?.toDate?.()?.toLocaleDateString() || 'Not specified',
+          endDate: tripData.endDate?.toDate?.()?.toLocaleDateString() || 'Not specified',
+          price: tripData.price ? `$${tripData.price}` : 'Price not set',
+          description: tripData.description || 'No description provided',
+          coverImage: tripData.photoUrl || null,
+          meetingPoint: tripData.meetingPoint?.address || 'Meeting point not specified',
+          tripType: tripData.tripType || 'General',
+          participants: tripData.participants || [],
+          userId: tripData.userId
+        });
+        
+        setCreator({
+          id: tripData.userId,
+          name: creatorData.name || 'Unknown User',
+          avatar: creatorData.avatarUrl || null,
+          email: creatorData.email || null
+        });
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+        setError(err.message || 'Failed to load trip details');
+      } finally {
         setLoading(false);
-      } catch (error) {
-        console.error('Error fetching trip details: ', error);
-        setLoading(false);
-        // Use mock data as fallback in case of error
-        const mockTrip = {
-          id: tripId,
-          title: "Mountain Hiking Trip",
-          location: "Mount Rainier, Washington",
-          startDate: "March 15, 2025",
-          endDate: "March 17, 2025",
-          price: 120,
-          description: "Join us for an exciting 3-day hiking adventure at Mount Rainier. Experience breathtaking views, professional guidance, and meet fellow hiking enthusiasts. All equipment and meals included.",
-          hostName: "John Smith",
-          hostAvatar: null,
-          spotsLeft: 4,
-          duration: "3 days, 2 nights",
-          difficultyLevel: "Intermediate Level",
-          included: ["Equipment", "Meals", "Guide", "Transport"]
-        };
-        setTrip(mockTrip);
       }
     };
 
-    fetchTripDetails();
+    fetchData();
   }, [tripId]);
 
-  const handleConnect = () => {
-    // Navigate to chat screen with the trip host
-    navigation.navigate('Chat', { 
-      recipientId: trip.hostId || '123', // Default ID for demo
-      recipientName: trip.hostName,
-      tripId: trip.id,
-      tripName: trip.title
-    });
+  const handleConnect = async () => {
+    try {
+      // Validate authentication and data
+      if (!currentUser?.uid) {
+        Alert.alert('Login Required', 'Please sign in to message the trip creator');
+        return navigation.navigate('Auth');
+      }
+      
+      if (!creator || !trip) {
+        throw new Error('Trip information not available');
+      }
+      
+      if (currentUser.uid === creator.id) {
+        return Alert.alert('Notice', "You can't message yourself");
+      }
+      
+      // Generate chat ID
+      const participants = [currentUser.uid, creator.id].sort();
+      const chatId = `chat_${participants.join('_')}`;
+      
+      // Create chat reference
+      const chatRef = doc(db, 'chats', chatId);
+      const chatSnap = await getDoc(chatRef);
+      
+      if (!chatSnap.exists()) {
+        await setDoc(chatRef, {
+          participants: participants,
+          createdAt: serverTimestamp()
+        });
+      }
+      
+      navigation.navigate('Chat', { chatId });
+    } catch (error) {
+      console.error('Chat creation failed:', error);
+      Alert.alert(
+        'Chat Creation Failed',
+        error.message || 'Unable to create chat'
+      );
+    }
   };
 
-  const handleJoinTrip = () => {
-    // Navigate to booking/confirmation screen
-    navigation.navigate('JoinTrip', { tripId: trip.id });
+  const handleJoinTrip = async () => {
+    console.log('Join Trip button clicked'); // Debug log
+    
+    // Validate user login status
+    if (!currentUser) {
+      console.log('No current user found'); // Debug log
+      Alert.alert('Login Required', 'Please sign in to join this trip', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign In', onPress: () => navigation.navigate('Auth') }
+      ]);
+      return;
+    }
+    
+    // Validate necessary data
+    if (!creator?.email) {
+      console.log('Creator email missing:', creator); // Debug log
+      Alert.alert('Error', 'Cannot contact trip host - email not available');
+      return;
+    }
+    
+    try {
+      setIsJoining(true); // Start loading state
+      console.log('Setting isJoining to true'); // Debug log
+      
+      const userData = {
+        userName: currentUser.displayName || 'User',
+        userEmail: currentUser.email,
+        tripTitle: trip.title,
+        hostEmail: creator.email
+      };
+      
+      // Log what we're sending to the API
+      console.log('Sending request to API:', {
+        url: `${API_BASE_URL}/send-join-request-email`,
+        data: userData
+      });
+      
+      // Check if API_BASE_URL is correctly set
+      if (!API_BASE_URL) {
+        console.error('API_BASE_URL is not defined!');
+        throw new Error('API configuration error');
+      }
+      
+      // Make API request to send email
+      const response = await axios.post(`${API_BASE_URL}/send-join-request-email`, userData);
+      console.log('API response:', response.status, response.data); // Debug log
+      
+      if (response.status === 200) {
+        // Success message
+        console.log('Request sent successfully'); // Debug log
+        Alert.alert(
+          'Request Sent!',
+          'Your join request has been sent to the trip host. They will contact you soon.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        throw new Error('Failed to send request');
+      }
+    } catch (err) {
+      console.error('Join request error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        config: err.config // This will show the request URL and data
+      });
+      
+      // Provide more detailed error message if available
+      const errorMessage = err.response?.data?.message ||
+        'Failed to send join request. Please try again later.';
+      
+      Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
+    } finally {
+      console.log('Setting isJoining to false'); // Debug log
+      setIsJoining(false); // End loading state
+    }
   };
 
-  if (loading || !trip) {
+  if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#000" />
+          <Text style={styles.loadingText}>Loading trip details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="warning-outline" size={48} color="#FF5252" />
+          <Text style={styles.errorText}>Couldn't load trip</Text>
+          <Text style={styles.errorSubText}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.retryButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!trip || !creator) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color="#FFA000" />
+          <Text style={styles.errorText}>Trip information incomplete</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={styles.retryButtonText}>Go Back</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -95,9 +259,8 @@ const TripDetailsScreen = ({ route }) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Header with back button and bookmark */}
         <View style={styles.header}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
           >
@@ -108,110 +271,103 @@ const TripDetailsScreen = ({ route }) => {
             <Ionicons name="bookmark-outline" size={24} color="#000" />
           </TouchableOpacity>
         </View>
-        
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {/* Trip Cover Image */}
+
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
           <View style={styles.imageContainer}>
             {trip.coverImage ? (
-              <Image source={{ uri: trip.coverImage }} style={styles.coverImage} />
+              <Image
+                source={{ uri: trip.coverImage }}
+                style={styles.coverImage}
+                resizeMode="cover"
+              />
             ) : (
               <View style={styles.placeholderImage}>
-                <Text style={styles.placeholderText}>Trip Cover Image</Text>
+                <Ionicons name="image-outline" size={48} color="#888" />
+                <Text style={styles.placeholderText}>No trip image</Text>
               </View>
             )}
           </View>
-          
-          {/* Trip Title and Price */}
+
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>{trip.title}</Text>
+            <Text style={styles.title} numberOfLines={2}>{trip.title}</Text>
             <View style={styles.priceTag}>
-              <Text style={styles.priceText}>${trip.price}/person</Text>
+              <Text style={styles.priceText}>{trip.price}</Text>
             </View>
           </View>
-          
-          {/* Location */}
+
+          <View style={styles.infoRow}>
+            <Ionicons name="pricetag-outline" size={20} color="#444" />
+            <Text style={styles.infoText}>{trip.tripType}</Text>
+          </View>
+
           <View style={styles.infoRow}>
             <Ionicons name="location-outline" size={20} color="#444" />
             <Text style={styles.infoText}>{trip.location}</Text>
           </View>
-          
-          {/* Date */}
+
+          <View style={styles.infoRow}>
+            <Ionicons name="pin-outline" size={20} color="#444" />
+            <Text style={styles.infoText}>Meet at: {trip.meetingPoint}</Text>
+          </View>
+
           <View style={styles.infoRow}>
             <Ionicons name="calendar-outline" size={20} color="#444" />
             <Text style={styles.infoText}>{trip.startDate} - {trip.endDate}</Text>
           </View>
-          
-          {/* Host Info */}
+
+          <View style={styles.infoRow}>
+            <Ionicons name="people-outline" size={20} color="#444" />
+            <Text style={styles.infoText}>
+              {trip.participants.length} {trip.participants.length === 1 ? 'participant' : 'participants'}
+            </Text>
+          </View>
+
           <View style={styles.hostContainer}>
             <View style={styles.hostAvatar}>
-              {trip.hostAvatar ? (
-                <Image source={{ uri: trip.hostAvatar }} style={styles.avatarImage} />
+              {creator.avatar ? (
+                <Image
+                  source={{ uri: creator.avatar }}
+                  style={styles.avatarImage}
+                />
               ) : (
-                <Text style={styles.avatarPlaceholder}>{trip.hostName.charAt(0)}</Text>
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarPlaceholderText}>
+                    {creator.name?.charAt(0)?.toUpperCase() || 'U'}
+                  </Text>
+                </View>
               )}
             </View>
-            <View>
-              <Text style={styles.hostName}>{trip.hostName}</Text>
-              <Text style={styles.hostLabel}>Trip Host</Text>
+            <View style={styles.hostInfo}>
+              <Text style={styles.hostName}>{creator.name}</Text>
+              <Text style={styles.hostLabel}>Trip Creator</Text>
             </View>
           </View>
-          
-          {/* About This Trip */}
+
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>About This Trip</Text>
             <Text style={styles.description}>{trip.description}</Text>
           </View>
-          
-          {/* Trip Details */}
-          <View style={styles.detailsContainer}>
-            <View style={styles.detailItem}>
-              <Ionicons name="people-outline" size={20} color="#444" />
-              <Text style={styles.detailText}>{trip.spotsLeft} spots left</Text>
-            </View>
-            
-            <View style={styles.detailItem}>
-              <Ionicons name="time-outline" size={20} color="#444" />
-              <Text style={styles.detailText}>{trip.duration}</Text>
-            </View>
-            
-            <View style={styles.detailItem}>
-              <Ionicons name="trending-up-outline" size={20} color="#444" />
-              <Text style={styles.detailText}>{trip.difficultyLevel}</Text>
-            </View>
-          </View>
-          
-          {/* What's Included */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionTitle}>What's Included</Text>
-            <View style={styles.includedContainer}>
-              {trip.included && trip.included.map((item, index) => (
-                <View key={index} style={styles.includedItem}>
-                  <Ionicons name="checkmark-outline" size={18} color="#444" />
-                  <Text style={styles.includedText}>{item}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-          
-          {/* Bottom Spacing for Button Container */}
-          <View style={{ height: 100 }} />
         </ScrollView>
-        
-        {/* Fixed Bottom Buttons */}
+
         <View style={styles.buttonContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.connectButton}
             onPress={handleConnect}
           >
             <Ionicons name="chatbubble-outline" size={20} color="#000" />
-            <Text style={styles.connectButtonText}>Connect</Text>
+            <Text style={styles.connectButtonText}>Message Creator</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity 
-            style={styles.joinButton}
+          <TouchableOpacity
+            style={[styles.joinButton, isJoining && styles.joinButtonDisabled]}
             onPress={handleJoinTrip}
+            disabled={isJoining}
           >
-            <Text style={styles.joinButtonText}>Join Trip</Text>
+            {isJoining ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.joinButtonText}>Join Trip</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -222,16 +378,59 @@ const TripDetailsScreen = ({ route }) => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#f5f5f5',
   },
   container: {
     flex: 1,
     backgroundColor: '#fff',
   },
+  scrollContent: {
+    paddingBottom: 120,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#FF5252',
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorSubText: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 24,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
+  retryButton: {
+    backgroundColor: '#000',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    minWidth: 150,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+    textAlign: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -239,13 +438,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomColor: '#ddd',
+    borderBottomColor: '#e0e0e0',
     borderBottomWidth: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#fff',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    color: '#000',
   },
   backButton: {
     padding: 8,
@@ -255,13 +455,12 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: '100%',
-    height: 200,
+    height: 240,
     backgroundColor: '#f0f0f0',
   },
   coverImage: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
   },
   placeholderImage: {
     width: '100%',
@@ -271,9 +470,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#ddd',
   },
   placeholderText: {
-    color: '#fff',
+    color: '#888',
     fontSize: 16,
-    fontWeight: '500',
+    marginTop: 8,
   },
   titleContainer: {
     flexDirection: 'row',
@@ -287,17 +486,21 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     flex: 1,
+    marginRight: 12,
+    color: '#000',
   },
   priceTag: {
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#f5f5f5',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#e0e0e0',
   },
   priceText: {
     fontWeight: 'bold',
+    fontSize: 16,
+    color: '#000',
   },
   infoRow: {
     flexDirection: 'row',
@@ -309,6 +512,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 16,
     color: '#444',
+    flex: 1,
   },
   hostContainer: {
     flexDirection: 'row',
@@ -316,15 +520,15 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginHorizontal: 20,
     padding: 15,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#f5f5f5',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#e0e0e0',
   },
   hostAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#ddd',
     justifyContent: 'center',
     alignItems: 'center',
@@ -336,17 +540,29 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   avatarPlaceholder: {
-    fontSize: 20,
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  avatarPlaceholderText: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#666',
+    color: '#fff',
+  },
+  hostInfo: {
+    flex: 1,
   },
   hostName: {
     fontWeight: 'bold',
     fontSize: 16,
+    color: '#000',
   },
   hostLabel: {
     color: '#666',
     fontSize: 14,
+    marginTop: 2,
   },
   sectionContainer: {
     marginTop: 24,
@@ -355,41 +571,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 12,
+    color: '#000',
   },
   description: {
     fontSize: 16,
     lineHeight: 24,
-    color: '#444',
-  },
-  detailsContainer: {
-    marginTop: 20,
-    paddingHorizontal: 20,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  detailText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: '#444',
-  },
-  includedContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 8,
-  },
-  includedItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '50%',
-    marginBottom: 12,
-  },
-  includedText: {
-    marginLeft: 8,
-    fontSize: 14,
     color: '#444',
   },
   buttonContainer: {
@@ -401,39 +588,42 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#fff',
     borderTopWidth: 1,
-    borderTopColor: '#ddd',
+    borderTopColor: '#e0e0e0',
   },
   connectButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f8f8f8',
-    borderRadius: 5,
-    paddingVertical: 12,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     marginRight: 10,
     flex: 1,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#e0e0e0',
   },
   connectButtonText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
     color: '#000',
   },
   joinButton: {
     backgroundColor: '#000',
-    borderRadius: 5,
-    paddingVertical: 12,
+    borderRadius: 8,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
   },
+  joinButtonDisabled: {
+    backgroundColor: '#666',
+  },
   joinButtonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });

@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./app/config/firebase";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
+import { auth, firestore } from "./app/config/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+
 import AuthNavigator from "./app/navigation/AuthNavigator";
 import BottomTabNavigator from "./app/navigation/BottomTabNavigator";
 import CreateProfileScreen from "./app/screens/Profile/CreateProfileScreen";
 import VerifyIdentityScreen from "./app/screens/Profile/VerifyIdentityScreen";
 import UploadLicenseScreen from "./app/screens/Profile/UploadLicenseScreen";
 import VerifyingSubmissionScreen from "./app/screens/Profile/VerifyingSubmissionScreen";
+
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { UserContextProvider } from "./app/contexts/UserContext";
-import { onSnapshot } from "firebase/firestore";
 
-const db = getFirestore();
 const Stack = createStackNavigator();
 const ProfileStack = createStackNavigator();
 
@@ -48,35 +48,30 @@ const MainNavigator = () => {
   const [profileCreated, setProfileCreated] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUser(user);
-
-        // Set up a real-time listener for the user document
-        const userDocRef = doc(db, "users", user.uid);
+        const userDocRef = doc(firestore, "users", user.uid);
         const unsubscribeDoc = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists() && docSnap.data().profileCreated) {
             setProfileCreated(true);
           } else {
             setProfileCreated(false);
           }
-
-          // Only set loading to false after we've checked the profile status
           setLoading(false);
         });
 
-        // Return a cleanup function that unsubscribes from both listeners
         return () => {
-          unsubscribeDoc();
+          unsubscribeDoc(); // cleanup listener
         };
       } else {
-        // No user is signed in
         setUser(null);
         setProfileCreated(false);
         setLoading(false);
       }
     });
-    return () => unsubscribe();
+
+    return () => unsubscribeAuth();
   }, []);
 
   if (loading) {
