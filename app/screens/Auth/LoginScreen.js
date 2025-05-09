@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
   StyleSheet,
   Image,
   ActivityIndicator
@@ -20,40 +19,41 @@ const LoginScreen = ({ navigation }) => {
   const [password, setPassword] = useState("");
   const [forgotPassword, setForgotPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(""); // New state for error message
 
   const handleLogin = async () => {
+    setError(""); // Clear previous errors
+    setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      Alert.alert("Login Successful", "You are now logged in!");
     } catch (error) {
-      Alert.alert("Login Failed", error.message);
+      if (error.code === 'auth/invalid-credential' || 
+          error.code === 'auth/wrong-password' || 
+          error.code === 'auth/user-not-found') {
+        setError("Invalid email or password");
+      } else {
+        setError(error.message);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   const handlePasswordReset = async () => {
     if (!email) {
-      Alert.alert("Error", "Please enter your email address.");
+      setError("Please enter your email address.");
       return;
     }
 
     setLoading(true);
+    setError("");
     try {
       await sendPasswordResetEmail(auth, email);
-      Alert.alert(
-        "Email Sent", 
-        "Password reset link has been sent to your email.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              setForgotPassword(false);
-              setLoading(false);
-            }
-          }
-        ]
-      );
+      setError("Password reset link sent to your email!");
+      setForgotPassword(false);
     } catch (error) {
-      Alert.alert("Error", error.message);
+      setError(error.message);
+    } finally {
       setLoading(false);
     }
   };
@@ -61,10 +61,12 @@ const LoginScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       {forgotPassword ? (
-        // Forgot Password Screen
         <View style={styles.forgotContainer}>
           <TouchableOpacity
-            onPress={() => setForgotPassword(false)}
+            onPress={() => {
+              setForgotPassword(false);
+              setError("");
+            }}
             style={styles.backButton}
           >
             <Text style={styles.backText}>← Back to Login</Text>
@@ -80,6 +82,9 @@ const LoginScreen = ({ navigation }) => {
           <Text style={styles.description}>
             Enter your email to receive a password reset link
           </Text>
+
+          {/* Error message display */}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <Text style={styles.label}>Email Address</Text>
           <TextInput
@@ -104,7 +109,6 @@ const LoginScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       ) : (
-        // Login Screen
         <>
           <Image
             source={require("../../../assets/logo.png")}
@@ -113,6 +117,9 @@ const LoginScreen = ({ navigation }) => {
           />
           <View style={styles.box}>
             <Text style={styles.title}>Welcome</Text>
+
+            {/* Error message display */}
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <Text style={styles.label}>Email</Text>
             <TextInput
@@ -132,12 +139,23 @@ const LoginScreen = ({ navigation }) => {
               onChangeText={setPassword}
             />
 
-            <TouchableOpacity onPress={handleLogin} style={styles.loginButton}>
-              <Text style={styles.loginText}>Log In</Text>
+            <TouchableOpacity 
+              onPress={handleLogin} 
+              style={styles.loginButton}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.loginText}>Log In</Text>
+              )}
             </TouchableOpacity>
 
             <View style={styles.forgotPasswordContainer}>
-              <TouchableOpacity onPress={() => setForgotPassword(true)}>
+              <TouchableOpacity onPress={() => {
+                setForgotPassword(true);
+                setError("");
+              }}>
                 <Text style={styles.forgotPassword}>
                   <Text style={{ fontWeight: "bold" }}>Forgot Password?</Text>
                 </Text>
@@ -156,9 +174,6 @@ const LoginScreen = ({ navigation }) => {
     </View>
   );
 };
-
-// ... (keep your existing styles)
-// ... (keep your existing styles)
 
 const styles = StyleSheet.create({
   container: {
@@ -218,6 +233,11 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#666",
     marginTop: 12,
+  },
+  errorText: {
+    color: 'red',
+    textAlign: 'center',
+    marginBottom: 10,
   },
   signupContainer: {
     flexDirection: "row",
