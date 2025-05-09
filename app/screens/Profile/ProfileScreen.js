@@ -517,68 +517,6 @@ const ProfileScreen = () => {
   />
 </View>
 
-
-
-{/* <View style={styles.tripsSection}>
-  <Text style={styles.sectionTitle}>My Trips</Text>
-
-  <Text style={styles.subTitle}>Upcoming Trips</Text>
-  {upcomingTrips.length > 0 ? (
-    upcomingTrips.map((trip) => (
-      <View key={trip.id} style={styles.tripCard}>
-        <Text style={styles.tripTitle}>{trip.destination || "Unnamed Destination"}</Text>
-        <Text style={styles.tripDates}>{formatDateRange(trip.startDate, trip.endDate)}</Text>
-      </View>
-    ))
-  ) : (
-    <Text style={styles.noTripsText}>No upcoming trips.</Text>
-  )}
-
-  <Text style={styles.subTitle}>Past Trips</Text>
-  {pastTrips.length > 0 ? (
-    pastTrips.map((trip) => (
-      <View key={trip.id} style={styles.tripCard}>
-        <Text style={styles.tripTitle}>{trip.destination || "Unnamed Destination"}</Text>
-        <Text style={styles.tripDates}>{formatDateRange(trip.startDate, trip.endDate)}</Text>
-      </View>
-    ))
-  ) : (
-    <Text style={styles.noTripsText}>No past trips.</Text>
-  )}
-</View> */}
-
-{/* <TouchableOpacity 
-  style={styles.tripSection} 
-  onPress={() => navigation.navigate("CurrentTrip")}
->
-  <View style={styles.tripSectionInner}>
-    <Text style={styles.tripSectionTitle}>My Trip</Text>
-    <Ionicons name="chevron-forward" size={20} color="#555" />
-  </View>
-</TouchableOpacity>
-<View style={styles.divider} /> */}
-
-{/* <TouchableOpacity 
-  style={styles.tripSection} 
-  onPress={() => navigation.navigate("UpcomingTrips")}
->
-  <View style={styles.tripSectionInner}>
-    <Text style={styles.tripSectionTitle}>Upcoming Trip</Text>
-    <Ionicons name="chevron-forward" size={20} color="#555" />
-  </View>
-</TouchableOpacity> */}
-
-{/* <View style={styles.divider} />
-<TouchableOpacity 
-  style={styles.tripSection} 
-  onPress={() => navigation.navigate("PastTrips")}
->
-  <View style={styles.tripSectionInner}>
-    <Text style={styles.tripSectionTitle}>Past Trip</Text>
-    <Ionicons name="chevron-forward" size={20} color="#555" />
-  </View>
-</TouchableOpacity> */}
-
 </View> 
       
 
