@@ -46,6 +46,7 @@ const StartTripScreen = ({ navigation }) => {
     lng: null,
     placeId: null
   });
+  const [budget, setBudget] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
@@ -370,6 +371,20 @@ const StartTripScreen = ({ navigation }) => {
     }
   };
 
+  const handleBudgetChange = (text) => {
+    // Remove all non-digit characters except decimal point
+    const cleaned = text.replace(/[^0-9.]/g, '');
+    
+    // Ensure only one decimal point
+    const parts = cleaned.split('.');
+    if (parts.length > 2) {
+      // If more than one decimal point, keep only the first
+      setBudget(parts[0] + '.' + parts.slice(1).join(''));
+    } else {
+      setBudget(cleaned);
+    }
+  };
+
   const onStartDateChange = (event, selectedDate) => {
     const currentDate = selectedDate || startDate;
     setShowStartPicker(false);
@@ -445,6 +460,22 @@ const StartTripScreen = ({ navigation }) => {
       return false;
     }
     
+    if (!budget.trim()) {
+      Alert.alert('Error', 'Please enter a budget amount');
+      return false;
+    }
+    
+    const budgetNumber = parseFloat(budget);
+    if (isNaN(budgetNumber)) {
+      Alert.alert('Error', 'Please enter a valid budget amount');
+      return false;
+    }
+    
+    if (budgetNumber <= 0) {
+      Alert.alert('Error', 'Budget must be greater than 0');
+      return false;
+    }
+    
     return true;
   };
 
@@ -459,7 +490,6 @@ const StartTripScreen = ({ navigation }) => {
       const tripData = {
         userId: auth.currentUser.uid,
         userEmail: auth.currentUser.email,
-        userName: auth.currentUser.displayName|| auth.currentUser.email.split('@')[0],
         tripType: tripType.trim(),
         startingPoint: {
           address: startingPoint.address,
@@ -480,6 +510,7 @@ const StartTripScreen = ({ navigation }) => {
           coordinates: new GeoPoint(meetingPoint.lat, meetingPoint.lng),
           placeId: meetingPoint.placeId
         },
+        budget: parseFloat(budget),
         createdAt: new Date().toISOString(),
         status: 'active',
         participants: [auth.currentUser.uid],
@@ -692,8 +723,7 @@ const StartTripScreen = ({ navigation }) => {
               'Starting Point',
               'starting-point',
               startingPoint.address,
-              (text) => setStartingPoint(prev => ({ ...prev, address: text }))
-            )
+              (text) => setStartingPoint(prev => ({ ...prev, address: text })))
           ) : (
             renderMobileAutocomplete(
               'Starting Point',
@@ -772,8 +802,7 @@ const StartTripScreen = ({ navigation }) => {
               'Meeting Point',
               'meeting-point',
               meetingPoint.address,
-              (text) => setMeetingPoint(prev => ({ ...prev, address: text }))
-            )
+              (text) => setMeetingPoint(prev => ({ ...prev, address: text })))
           ) : (
             renderMobileAutocomplete(
               'Meeting Point',
@@ -781,6 +810,15 @@ const StartTripScreen = ({ navigation }) => {
               handleMeetingPointSelect
             )
           )}
+
+          <Text style={styles.label}>Budget ($)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter estimated budget for the trip"
+            value={budget}
+            onChangeText={handleBudgetChange}
+            keyboardType="numeric"
+          />
 
           <TouchableOpacity
             style={[styles.button, isLoading && styles.disabledButton]}
