@@ -75,7 +75,7 @@ const TripDetailsScreen = ({ route }) => {
           location: tripData.destination?.address || 'Location not specified',
           startDate: startDateFormatted,
           endDate: endDateFormatted,
-          price: tripData.price ? `$${tripData.price}` : 'Price not set',
+          budget: tripData.budget ? `$${tripData.budget}` : 'Budget not set',
           description: tripData.tripDescription || 'No description provided',
           coverImage: tripData.destination?.photos?.[0] || null,
           meetingPoint: tripData.meetingPoint?.address || 'Meeting point not specified',
@@ -300,7 +300,7 @@ const TripDetailsScreen = ({ route }) => {
           <View style={styles.titleContainer}>
             <Text style={styles.title} numberOfLines={2}>{trip.title}</Text>
             <View style={styles.priceTag}>
-              <Text style={styles.priceText}>{trip.price}</Text>
+              <Text style={styles.priceText}>{trip.budget}</Text>
             </View>
           </View>
 

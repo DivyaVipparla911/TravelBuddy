@@ -490,6 +490,7 @@ const StartTripScreen = ({ navigation }) => {
       const tripData = {
         userId: auth.currentUser.uid,
         userEmail: auth.currentUser.email,
+        userName: auth.currentUser.displayName|| auth.currentUser.email.split('@')[0],
         tripType: tripType.trim(),
         startingPoint: {
           address: startingPoint.address,
@@ -513,7 +514,7 @@ const StartTripScreen = ({ navigation }) => {
         budget: parseFloat(budget),
         createdAt: new Date().toISOString(),
         status: 'active',
-        participants: [auth.currentUser.uid],
+        participants: [auth.currentUser.email],
         updatedAt: new Date().toISOString()
       };
 

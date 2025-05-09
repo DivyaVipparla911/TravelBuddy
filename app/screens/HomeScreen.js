@@ -49,7 +49,7 @@ const HomeScreen = () => {
       photoUrl,
       tripType,
       description = "Explore the beautiful destination",
-      price = "$$$"
+      budget
     } = item;
 
     // Use the first part of the address or a default destination name
@@ -79,7 +79,7 @@ const HomeScreen = () => {
             <View style={styles.tripTypeTag}>
               <Text style={styles.tripTypeText}>{tripType || "Adventure"}</Text>
             </View>
-            <Text style={styles.tripPrice}>{price}</Text>
+            <Text style={styles.tripPrice}>${budget}</Text> 
           </View>
           
           <TouchableOpacity 
