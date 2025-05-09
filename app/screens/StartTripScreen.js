@@ -49,6 +49,14 @@ const StartTripScreen = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  const [errors, setErrors] = useState({
+    tripType: '',
+    startingPoint: '',
+    destination: '',
+    tripDescription: '',
+    meetingPoint: '',
+    general: ''
+  });
 
   // Refs for Google Places
   const startingPointRef = useRef(null);
@@ -59,6 +67,56 @@ const StartTripScreen = ({ navigation }) => {
   useEffect(() => {
     console.log('Component mounted - API Key:', MAPS_KEY ? 'Loaded' : 'Missing');
   }, []);
+
+  // Validate form fields
+  const validateForm = () => {
+    let isValid = true;
+    const newErrors = {
+      tripType: '',
+      startingPoint: '',
+      destination: '',
+      tripDescription: '',
+      meetingPoint: '',
+      general: ''
+    };
+
+    if (!tripType.trim()) {
+      newErrors.tripType = 'Trip type is required';
+      isValid = false;
+    }
+
+    if (!startingPoint.address) {
+      newErrors.startingPoint = 'Starting point is required';
+      isValid = false;
+    }
+
+    if (!destination.address) {
+      newErrors.destination = 'Destination is required';
+      isValid = false;
+    }
+
+    if (!tripDescription.trim()) {
+      newErrors.tripDescription = 'Trip description is required';
+      isValid = false;
+    }
+
+    if (!meetingPoint.address) {
+      newErrors.meetingPoint = 'Meeting point is required';
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  // Clear error when field is edited
+  const clearError = (field) => {
+    setErrors({
+      ...errors,
+      [field]: '',
+      general: ''
+    });
+  };
 
   // Fetch place photo from Google Places (only for destination)
   const fetchPlacePhoto = async (placeId) => {
@@ -95,6 +153,7 @@ const StartTripScreen = ({ navigation }) => {
     setStartingPoint({ address, lat, lng, placeId });
     startingPointRef.current?.setAddressText(address);
     startingPointRef.current?.blur();
+    clearError('startingPoint');
   };
 
   // Handle place selection for destination (with photo)
@@ -116,6 +175,7 @@ const StartTripScreen = ({ navigation }) => {
       setDestination({ address, lat, lng, photoUrl, placeId });
       destinationRef.current?.setAddressText(address);
       destinationRef.current?.blur();
+      clearError('destination');
     } catch (error) {
       console.error('Destination selection error:', error);
       setDestination({ address, lat, lng, photoUrl: null, placeId });
@@ -139,6 +199,7 @@ const StartTripScreen = ({ navigation }) => {
     setMeetingPoint({ address, lat, lng, placeId });
     meetingPointRef.current?.setAddressText(address);
     meetingPointRef.current?.blur();
+    clearError('meetingPoint');
   };
 
   // Date picker handlers
@@ -192,12 +253,12 @@ const StartTripScreen = ({ navigation }) => {
     console.log('Attempting to start trip...');
     if (isLoading) return;
 
-    // Validation checks
-    if (!tripType || !startingPoint.address || !destination.address || 
-        !tripDescription || !meetingPoint.address) {
-      Alert.alert('Error', 'Please fill in all fields');
+    // Validate form fields
+    if (!validateForm()) {
       return;
     }
+
+    // Validate dates
     if (!validateDates()) return;
 
     // Check if coordinates are valid for GeoPoint
@@ -252,11 +313,14 @@ const StartTripScreen = ({ navigation }) => {
   };
 
   // Render location picker component for starting point and meeting point (no photo)
-  const renderSimpleLocationPicker = (label, ref, onPress) => {
+  const renderSimpleLocationPicker = (label, fieldName, ref, onPress) => {
     return (
       <>
         <Text style={styles.label}>{label}</Text>
-        <View style={styles.autocompleteWrapper}>
+        <View style={[
+          styles.autocompleteWrapper,
+          errors[fieldName] ? styles.errorInput : null
+        ]}>
           <GooglePlacesAutocomplete
             placeholder={`Enter ${label.toLowerCase()}`}
             onPress={onPress}
@@ -280,6 +344,7 @@ const StartTripScreen = ({ navigation }) => {
             renderRow={(item) => <Text style={styles.placeItem}>{item.description}</Text>}
           />
         </View>
+        {errors[fieldName] ? <Text style={styles.errorText}>{errors[fieldName]}</Text> : null}
       </>
     );
   };
@@ -289,7 +354,10 @@ const StartTripScreen = ({ navigation }) => {
     return (
       <>
         <Text style={styles.label}>Destination</Text>
-        <View style={styles.autocompleteWrapper}>
+        <View style={[
+          styles.autocompleteWrapper,
+          errors.destination ? styles.errorInput : null
+        ]}>
           <GooglePlacesAutocomplete
             placeholder="Enter destination"
             onPress={handleDestinationSelect}
@@ -313,6 +381,7 @@ const StartTripScreen = ({ navigation }) => {
             renderRow={(item) => <Text style={styles.placeItem}>{item.description}</Text>}
           />
         </View>
+        {errors.destination ? <Text style={styles.errorText}>{errors.destination}</Text> : null}
         {destination.photoUrl && (
           <View style={styles.photoContainer}>
             <Image
@@ -354,96 +423,120 @@ const StartTripScreen = ({ navigation }) => {
         <View style={styles.innerContainer}>
           <Text style={styles.title}>Start New Trip</Text>
 
+          {/* General Error Message */}
+          {errors.general ? (
+            <View style={styles.generalErrorContainer}>
+              <Text style={styles.generalErrorText}>{errors.general}</Text>
+            </View>
+          ) : null}
+
           {isLoading && (
             <View style={styles.overlayLoader}>
               <ActivityIndicator size="large" color="#0000ff" />
             </View>
           )}
 
-        {/* Trip Type Input */}
-        <Text style={styles.label}>Trip Type</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="e.g., Road Trip, Vacation"
-          value={tripType}
-          onChangeText={setTripType}
-        />
-
-        {/* Starting Point Picker (no photo) */}
-        {renderSimpleLocationPicker(
-          'Current Location', 
-          startingPointRef, 
-          handleStartingPointSelect
-        )}
-
-        {/* Destination Picker (with photo) */}
-        {renderDestinationPicker()}
-
-        {/* Date Pickers */}
-        <Text style={styles.label}>Trip Dates</Text>
-        <View style={styles.dateRow}>
-          <DatePickerButton 
-            label="Start Date"
-            date={startDate}
-            onPress={() => setShowStartPicker(true)}
+          {/* Trip Type Input */}
+          <Text style={styles.label}>Trip Type</Text>
+          <TextInput
+            style={[
+              styles.input,
+              errors.tripType ? styles.errorInput : null
+            ]}
+            placeholder="e.g., Road Trip, Vacation"
+            value={tripType}
+            onChangeText={(text) => {
+              setTripType(text);
+              clearError('tripType');
+            }}
           />
-          <DatePickerButton 
-            label="End Date"
-            date={endDate}
-            onPress={() => setShowEndPicker(true)}
-          />
-        </View>
+          {errors.tripType ? <Text style={styles.errorText}>{errors.tripType}</Text> : null}
 
-        {showStartPicker && (
-          <DateTimePicker
-            value={startDate}
-            mode="date"
-            display="default"
-            minimumDate={new Date()}
-            onChange={onStartDateChange}
-          />
-        )}
-
-        {showEndPicker && (
-          <DateTimePicker
-            value={endDate}
-            mode="date"
-            display="default"
-            minimumDate={startDate}
-            onChange={onEndDateChange}
-          />
-        )}
-
-        {/* Trip Description */}
-        <Text style={styles.label}>Trip Description</Text>
-        <TextInput
-          style={[styles.input, styles.descriptionInput]}
-          placeholder="Describe your trip plans, activities, etc."
-          value={tripDescription}
-          onChangeText={setTripDescription}
-          multiline
-          numberOfLines={4}
-        />
-
-        {/* Meeting Point Picker (no photo) */}
-        {renderSimpleLocationPicker(
-          'Meeting Point', 
-          meetingPointRef, 
-          handleMeetingPointSelect
-        )}
-
-        {/* Submit Button */}
-        <TouchableOpacity 
-          style={[styles.button, isLoading && styles.disabledButton]} 
-          onPress={handleStartTrip}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Start Trip</Text>
+          {/* Starting Point Picker (no photo) */}
+          {renderSimpleLocationPicker(
+            'Current Location', 
+            'startingPoint',
+            startingPointRef, 
+            handleStartingPointSelect
           )}
-        </TouchableOpacity>
+
+          {/* Destination Picker (with photo) */}
+          {renderDestinationPicker()}
+
+          {/* Date Pickers */}
+          <Text style={styles.label}>Trip Dates</Text>
+          <View style={styles.dateRow}>
+            <DatePickerButton 
+              label="Start Date"
+              date={startDate}
+              onPress={() => setShowStartPicker(true)}
+            />
+            <DatePickerButton 
+              label="End Date"
+              date={endDate}
+              onPress={() => setShowEndPicker(true)}
+            />
+          </View>
+
+          {showStartPicker && (
+            <DateTimePicker
+              value={startDate}
+              mode="date"
+              display="default"
+              minimumDate={new Date()}
+              onChange={onStartDateChange}
+            />
+          )}
+
+          {showEndPicker && (
+            <DateTimePicker
+              value={endDate}
+              mode="date"
+              display="default"
+              minimumDate={startDate}
+              onChange={onEndDateChange}
+            />
+          )}
+
+          {/* Trip Description */}
+          <Text style={styles.label}>Trip Description</Text>
+          <TextInput
+            style={[
+              styles.input, 
+              styles.descriptionInput,
+              errors.tripDescription ? styles.errorInput : null
+            ]}
+            placeholder="Describe your trip plans, activities, etc."
+            value={tripDescription}
+            onChangeText={(text) => {
+              setTripDescription(text);
+              clearError('tripDescription');
+            }}
+            multiline
+            numberOfLines={4}
+          />
+          {errors.tripDescription ? <Text style={styles.errorText}>{errors.tripDescription}</Text> : null}
+
+          {/* Meeting Point Picker (no photo) */}
+          {renderSimpleLocationPicker(
+            'Meeting Point', 
+            'meetingPoint',
+            meetingPointRef, 
+            handleMeetingPointSelect
+          )}
+
+          {/* Submit Button */}
+          <TouchableOpacity 
+            style={[styles.button, isLoading && styles.disabledButton]} 
+            onPress={handleStartTrip}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Start Trip</Text>
+            )}
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -488,6 +581,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     backgroundColor: '#fff',
     fontSize: 16,
+  },
+  errorInput: {
+    borderColor: 'red',
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
   },
   descriptionInput: {
     height: 100,
@@ -583,6 +685,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.7)',
     zIndex: 100,
+  },
+  generalErrorContainer: {
+    backgroundColor: '#FFEBEE',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F44336',
+  },
+  generalErrorText: {
+    color: '#D32F2F',
+    fontWeight: '500',
   },
 });
 

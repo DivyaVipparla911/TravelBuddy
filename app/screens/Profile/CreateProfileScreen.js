@@ -28,6 +28,13 @@ const CreateProfile = () => {
   const [aboutMe, setAboutMe] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const [errors, setErrors] = useState({
+    fullName: false,
+    gender: false,
+    address: { street: false, city: false },
+    travelInterests: false,
+    aboutMe: false,
+  });
 
   const navigation = useNavigation();
 
@@ -76,7 +83,32 @@ const CreateProfile = () => {
     navigation.navigate("VerifyIdentity");
   };
 
+  const validateFields = () => {
+    const newErrors = {
+      fullName: !fullName.trim(),
+      gender: !gender,
+      address: {
+        street: !address.street.trim(),
+        city: !address.city.trim(),
+      },
+      travelInterests: !Object.values(travelInterests).some(val => val),
+      aboutMe: !aboutMe.trim(),
+    };
+    
+    setErrors(newErrors);
+    return !Object.values(newErrors).some(error => 
+      typeof error === 'object' 
+        ? Object.values(error).some(val => val)
+        : error
+    );
+  };
+
   const handleSave = async () => {
+    if (!validateFields()) {
+      Alert.alert("Error", "Please fill all required fields");
+      return;
+    }
+
     if (!fullName.trim()) {
       Alert.alert("Error", "Please enter your full name");
       return;
@@ -152,16 +184,20 @@ const CreateProfile = () => {
             <Text style={styles.changePhotoText}>Change Photo</Text>
           </View>
 
-          <Text style={styles.label}>Full Name</Text>
-          <View style={styles.inputContainer}>
+          <Text style={styles.label}>Full Name *</Text>
+          <View style={[styles.inputContainer, errors.fullName && styles.errorInput]}>
             <Ionicons name="person-outline" size={20} color="gray" style={styles.icon} />
             <TextInput 
               style={styles.input} 
               placeholder="Enter your full name" 
               value={fullName} 
-              onChangeText={setFullName} 
+              onChangeText={(text) => {
+                setFullName(text);
+                setErrors({...errors, fullName: false});
+              }} 
             />
           </View>
+          {errors.fullName && <Text style={styles.errorText}>Please enter your full name</Text>}
 
           {isVerified ? (
             <View style={styles.verificationContainer}>
@@ -188,8 +224,11 @@ const CreateProfile = () => {
             </TouchableOpacity>
           )}
 
-          <Text style={styles.label}>Date of Birth</Text>
-          <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowDatePicker(true)}>
+          <Text style={styles.label}>Date of Birth *</Text>
+          <TouchableOpacity 
+            style={[styles.datePickerButton, errors.dateOfBirth && styles.errorInput]} 
+            onPress={() => setShowDatePicker(true)}
+          >
             <Text>{dateOfBirth.toDateString()}</Text>
           </TouchableOpacity>
           {showDatePicker && (
@@ -204,51 +243,75 @@ const CreateProfile = () => {
             />
           )}
 
-          <Text style={styles.label}>Gender</Text>
-          <View style={styles.pickerContainer}>
-            <Picker selectedValue={gender} onValueChange={(itemValue) => setGender(itemValue)}>
+          <Text style={styles.label}>Gender *</Text>
+          <View style={[styles.pickerContainer, errors.gender && styles.errorInput]}>
+            <Picker 
+              selectedValue={gender} 
+              onValueChange={(itemValue) => {
+                setGender(itemValue);
+                setErrors({...errors, gender: false});
+              }}
+            >
               <Picker.Item label="Select gender" value="" />
               <Picker.Item label="Male" value="male" />
               <Picker.Item label="Female" value="female" />
               <Picker.Item label="Other" value="other" />
             </Picker>
           </View>
+          {errors.gender && <Text style={styles.errorText}>Please select your gender</Text>}
 
-          <Text style={styles.label}>Travel Interests</Text>
-          <View style={styles.interestsContainer}>
+          <Text style={styles.label}>Travel Interests *</Text>
+          <View style={[styles.interestsContainer, errors.travelInterests && styles.errorInput]}>
             {Object.keys(travelInterests).map((interest) => (
               <View key={interest} style={styles.interestItem}>
                 <Checkbox 
                   value={travelInterests[interest]} 
-                  onValueChange={(newValue) => setTravelInterests({ ...travelInterests, [interest]: newValue })} 
+                  onValueChange={(newValue) => {
+                    setTravelInterests({ ...travelInterests, [interest]: newValue });
+                    setErrors({...errors, travelInterests: false});
+                  }} 
                 />
                 <Text style={styles.interestText}>{interest}</Text>
               </View>
             ))}
           </View>
+          {errors.travelInterests && <Text style={styles.errorText}>Please select at least one interest</Text>}
 
-          <Text style={styles.label}>Address</Text>
+          <Text style={styles.label}>Address *</Text>
           <TextInput 
-            style={styles.textInput} 
+            style={[styles.textInput, errors.address.street && styles.errorInput]} 
             placeholder="Street Address" 
             value={address.street} 
-            onChangeText={(text) => setAddress({ ...address, street: text })} 
+            onChangeText={(text) => {
+              setAddress({ ...address, street: text });
+              setErrors({...errors, address: {...errors.address, street: false}});
+            }} 
           />
+          {errors.address.street && <Text style={styles.errorText}>Please enter street address</Text>}
+          
           <TextInput 
-            style={styles.textInput} 
+            style={[styles.textInput, errors.address.city && styles.errorInput]} 
             placeholder="City" 
             value={address.city} 
-            onChangeText={(text) => setAddress({ ...address, city: text })} 
+            onChangeText={(text) => {
+              setAddress({ ...address, city: text });
+              setErrors({...errors, address: {...errors.address, city: false}});
+            }} 
           />
+          {errors.address.city && <Text style={styles.errorText}>Please enter city</Text>}
 
-          <Text style={styles.label}>About Me</Text>
+          <Text style={styles.label}>About Me *</Text>
           <TextInput 
-            style={styles.textAreaInput} 
+            style={[styles.textAreaInput, errors.aboutMe && styles.errorInput]} 
             placeholder="Tell us about yourself..." 
             multiline 
             value={aboutMe} 
-            onChangeText={setAboutMe} 
+            onChangeText={(text) => {
+              setAboutMe(text);
+              setErrors({...errors, aboutMe: false});
+            }} 
           />
+          {errors.aboutMe && <Text style={styles.errorText}>Please tell us about yourself</Text>}
 
           <TouchableOpacity 
             style={[styles.saveButton, isLoading && styles.disabledButton]} 
@@ -411,6 +474,15 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: "white",
     fontWeight: "bold"
+  },
+  errorInput: {
+    borderColor: "red"
+  },
+  errorText: {
+    color: "red",
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4
   }
 });
 
