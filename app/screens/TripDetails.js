@@ -169,7 +169,7 @@ const TripDetailsScreen = ({ route }) => {
       const userData = {
         userName: currentUser.displayName || 'User',
         userEmail: currentUser.email,
-        tripTitle: trip.destination.address,
+        tripTitle: trip.destination?.address,
         hostEmail: creator.email
       };
       
