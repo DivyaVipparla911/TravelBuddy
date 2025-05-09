@@ -297,7 +297,7 @@ const StartTripScreen = ({ navigation }) => {
         },
         createdAt: new Date().toISOString(),
         status: 'active',
-        participants: [auth.currentUser.uid]
+        participants: [auth.currentUser.email]
       };
 
       console.log('Creating trip with data:', tripData);

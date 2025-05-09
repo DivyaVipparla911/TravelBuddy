@@ -88,7 +88,7 @@ const HomeScreen = () => {
             style={styles.joinButton}
             onPress={() => handleJoinTrip(item.id)}
           >
-            <Text style={styles.joinButtonText}>Join Trip</Text>
+            <Text style={styles.joinButtonText}>View Details</Text>
           </TouchableOpacity>
         </View>
       </View>

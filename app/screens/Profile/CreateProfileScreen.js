@@ -184,21 +184,6 @@ const CreateProfile = () => {
             <Text style={styles.changePhotoText}>Change Photo</Text>
           </View>
 
-          <Text style={styles.label}>Full Name *</Text>
-          <View style={[styles.inputContainer, errors.fullName && styles.errorInput]}>
-            <Ionicons name="person-outline" size={20} color="gray" style={styles.icon} />
-            <TextInput 
-              style={styles.input} 
-              placeholder="Enter your full name" 
-              value={fullName} 
-              onChangeText={(text) => {
-                setFullName(text);
-                setErrors({...errors, fullName: false});
-              }} 
-            />
-          </View>
-          {errors.fullName && <Text style={styles.errorText}>Please enter your full name</Text>}
-
           {isVerified ? (
             <View style={styles.verificationContainer}>
               <Text style={styles.label}>Verification Status</Text>
@@ -223,6 +208,22 @@ const CreateProfile = () => {
               <Text style={styles.uploadButtonText}>Upload License or State ID</Text>
             </TouchableOpacity>
           )}
+
+        <Text style={styles.label}>Full Name *</Text>
+          <View style={[styles.inputContainer, errors.fullName && styles.errorInput]}>
+            <Ionicons name="person-outline" size={20} color="gray" style={styles.icon} />
+            <TextInput 
+              style={styles.input} 
+              placeholder="Enter your full name" 
+              value={fullName} 
+              onChangeText={(text) => {
+                setFullName(text);
+                setErrors({...errors, fullName: false});
+              }} 
+            />
+          </View>
+          {errors.fullName && <Text style={styles.errorText}>Please enter your full name</Text>}
+
 
           <Text style={styles.label}>Date of Birth *</Text>
           <TouchableOpacity 
