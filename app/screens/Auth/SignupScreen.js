@@ -15,8 +15,8 @@ const SignupScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({
-    fullName: "",
-    mobile: "",
+    // fullName: "",
+    // mobile: "",
     email: "",
     password: ""
   });
@@ -25,20 +25,20 @@ const SignupScreen = ({ navigation }) => {
   const validateForm = () => {
     let valid = true;
     const newErrors = {
-      fullName: "",
-      mobile: "",
+      // fullName: "",
+      // mobile: "",
       email: "",
       password: ""
     };
 
-    if (!fullName.trim()) {
-      newErrors.fullName = "Full name is required";
-      valid = false;
-    }
-    if (!mobile.trim()) {
-      newErrors.mobile = "Mobile number is required";
-      valid = false;
-    }
+    // if (!fullName.trim()) {
+    //   newErrors.fullName = "Full name is required";
+    //   valid = false;
+    // }
+    // if (!mobile.trim()) {
+    //   newErrors.mobile = "Mobile number is required";
+    //   valid = false;
+    // }
     if (!email.trim()) {
       newErrors.email = "Email is required";
       valid = false;

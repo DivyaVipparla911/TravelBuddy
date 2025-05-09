@@ -123,8 +123,9 @@ const ProfileScreen = () => {
         
         const now = new Date();
         const upcoming = tripsData.filter(t => new Date(t.startDate) >= now);
-        const past = tripsData.filter(t => new Date(t.startDate) < now);
-
+        const past = tripsData.filter(t => new Date(t.endDate) < now);
+        
+ 
         setUpcomingTrips(upcoming);
         setPastTrips(past);
         setTrips(myTripsData);
@@ -181,24 +182,29 @@ const ProfileScreen = () => {
       destination,
       photoUrl,
       tripType,
-      description = "Explore the beautiful destination",
-      price = "$$$",
-      id
+      id, startDate, endDate
     } = item;
+
+    const startDate1 = startDate?.toDate ? startDate.toDate() : new Date(startDate);
+const endDate1 = endDate?.toDate ? endDate.toDate() : new Date(endDate);
+
+const startDateFormatted = startDate1 ? startDate1.toLocaleDateString('en-US') : 'Not specified';
+const endDateFormatted = endDate1 ? endDate1.toLocaleDateString('en-US') : 'Not specified';
+
   
     const destinationName = destination?.address?.split(',')[0] || "Unknown Destination";
   
     return (
       <View style={styles.tripCard}>
         <View style={styles.tripContent}>
-          <Text style={styles.tripTitle}>{destinationName}</Text>
-          <Text style={styles.tripDescription}>{description}</Text>
-  
-          <View style={styles.tripTagsRow}>
-            <View style={styles.tripTypeTag}>
-              <Text style={styles.tripTypeText}>{tripType || "Adventure"}</Text>
-            </View>
-            <Text style={styles.tripPrice}>{price}</Text>
+
+          <View style={styles.infoRow}>
+            <Ionicons name="location-outline" size={20} color="#444" />
+            <Text style={styles.infoText}>{destinationName}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Ionicons name="calendar-outline" size={20} color="#444" />
+            <Text style={styles.infoText}>{startDateFormatted} - {endDateFormatted}</Text>
           </View>
   
           {showBuddyInputFor === id ? (
@@ -214,8 +220,13 @@ const ProfileScreen = () => {
               <Button title="Cancel" onPress={() => setShowBuddyInputFor(null)} />
             </>
           ) : (
-            <Button title="Add Buddy" onPress={() => setShowBuddyInputFor(id)} />
-          )}
+            <TouchableOpacity
+              style={styles.addBuddyButton}
+              onPress={() => setShowBuddyInputFor(id)}
+            >
+              <Text style={styles.addBuddyButtonText}>Add Buddy</Text>
+            </TouchableOpacity>
+         )}
         </View>
       </View>
     );
@@ -226,26 +237,30 @@ const ProfileScreen = () => {
       const {
         destination,
         photoUrl,
-        tripType,
-        description = "Explore the beautiful destination",
-        price = "$$$"
+        tripType, startDate, endDate
       } = item;
-  
+      const startDate1 = startDate?.toDate ? startDate.toDate() : new Date(startDate);
+const endDate1 = endDate?.toDate ? endDate.toDate() : new Date(endDate);
+
+const startDateFormatted = startDate1 ? startDate1.toLocaleDateString('en-US') : 'Not specified';
+const endDateFormatted = endDate1 ? endDate1.toLocaleDateString('en-US') : 'Not specified';
+
       // Use the first part of the address or a default destination name
       const destinationName = destination?.address?.split(',')[0] || "Unknown Destination";
   
       return (
         <View style={styles.tripCard}> 
           <View style={styles.tripContent}>
-            <Text style={styles.tripTitle}>{destinationName}</Text>
-            <Text style={styles.tripDescription}>{description}</Text>
-            
-            <View style={styles.tripTagsRow}>
-              <View style={styles.tripTypeTag}>
-                <Text style={styles.tripTypeText}>{tripType || "Adventure"}</Text>
-              </View>
-              <Text style={styles.tripPrice}>{price}</Text>
-            </View>
+          <View style={styles.infoRow}>
+            <Ionicons name="location-outline" size={20} color="#444" />
+            <Text style={styles.infoText}>{destinationName}</Text>
+          </View>
+          
+            <View style={styles.infoRow}>
+            <Ionicons name="calendar-outline" size={20} color="#444" />
+            <Text style={styles.infoText}>{startDateFormatted} - {endDateFormatted}</Text>
+          </View>
+  
           </View>
         </View>
       );
@@ -1090,6 +1105,35 @@ termsCloseText: {
     fontWeight: 'bold',
   },
   icon: { marginRight: 10 },
+  addBuddyButton: {
+    backgroundColor: 'black',  // Set the background to black
+    paddingVertical: 10,        // Add some padding
+    paddingHorizontal: 20,      // Add horizontal padding
+    borderRadius: 5,           // Optional: Rounded corners
+    alignItems: 'center',      // Center the text horizontally
+    justifyContent: 'center',  // Center the text vertically
+    marginVertical: 10,        // Optional: Some space between buttons
+  },
+
+  addBuddyButtonText: {
+    color: 'white',            // Text color is white
+    fontSize: 16,              // Optional: Font size
+    fontWeight: 'bold',        // Optional: Bold text
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginVertical: 6,
+  },
+  infoText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#444',
+    flex: 1,
+  },
+
+
 });
 
 export default ProfileScreen;

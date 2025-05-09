@@ -58,17 +58,26 @@ const TripDetailsScreen = ({ route }) => {
         }
         
         const creatorData = creatorSnap.data();
-        
-        // Set states
+        // Assuming tripData contains startDate and endDate as ISO 8601 strings
+        const startDate = tripData.startDate ? new Date(tripData.startDate) : null;
+        const endDate = tripData.endDate ? new Date(tripData.endDate) : null;
+
+        const startDateFormatted = startDate ? startDate.toLocaleDateString('en-US') : 'Not specified';
+        const endDateFormatted = endDate ? endDate.toLocaleDateString('en-US') : 'Not specified';
+
+        console.log('Start Date:', startDateFormatted);
+        console.log('End Date:', endDateFormatted);
+
+
         setTrip({
           id: tripSnap.id,
-          title: tripData.title || 'Untitled Trip',
+          title: tripData.destination?.address || 'Untitled Trip',
           location: tripData.destination?.address || 'Location not specified',
-          startDate: tripData.startDate?.toDate?.()?.toLocaleDateString() || 'Not specified',
-          endDate: tripData.endDate?.toDate?.()?.toLocaleDateString() || 'Not specified',
+          startDate: startDateFormatted,
+          endDate: endDateFormatted,
           price: tripData.price ? `$${tripData.price}` : 'Price not set',
-          description: tripData.description || 'No description provided',
-          coverImage: tripData.photoUrl || null,
+          description: tripData.tripDescription || 'No description provided',
+          coverImage: tripData.destination?.photos?.[0] || null,
           meetingPoint: tripData.meetingPoint?.address || 'Meeting point not specified',
           tripType: tripData.tripType || 'General',
           participants: tripData.participants || [],
@@ -77,8 +86,8 @@ const TripDetailsScreen = ({ route }) => {
         
         setCreator({
           id: tripData.userId,
-          name: creatorData.name || 'Unknown User',
-          avatar: creatorData.avatarUrl || null,
+          name: creatorData.fullName || creatorData.displayName || creatorData.email?.split('@')[0] || 'Unknown User',
+          avatar: creatorData.avatarUrl || creatorData.photoURL || null,
           email: creatorData.email || null
         });
       } catch (err) {
@@ -88,7 +97,7 @@ const TripDetailsScreen = ({ route }) => {
         setLoading(false);
       }
     };
-
+  
     fetchData();
   }, [tripId]);
 
@@ -160,7 +169,7 @@ const TripDetailsScreen = ({ route }) => {
       const userData = {
         userName: currentUser.displayName || 'User',
         userEmail: currentUser.email,
-        tripTitle: trip.title,
+        tripTitle: trip.destination.address,
         hostEmail: creator.email
       };
       
@@ -355,7 +364,7 @@ const TripDetailsScreen = ({ route }) => {
             onPress={handleConnect}
           >
             <Ionicons name="chatbubble-outline" size={20} color="#000" />
-            <Text style={styles.connectButtonText}>Message Creator</Text>
+            <Text style={styles.connectButtonText}>Connect</Text>
           </TouchableOpacity>
           
           <TouchableOpacity

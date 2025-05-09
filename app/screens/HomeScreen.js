@@ -1,4 +1,3 @@
-// HomeScreen.js
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -8,7 +7,6 @@ import {
   StyleSheet,
   Image,
   ActivityIndicator,
-  TextInput,
   SafeAreaView
 } from "react-native";
 import { collection, getDocs } from "firebase/firestore";
@@ -97,26 +95,6 @@ const HomeScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search destinations, trips, activities..."
-          placeholderTextColor="#999"
-        />
-      </View>
-      
-      <View style={styles.filterRow}>
-        <TouchableOpacity style={styles.filterButton}>
-          <Text style={styles.filterText}>Trip Type</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.filterButton}>
-          <Text style={styles.filterText}>Budget</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.filterButton}>
-          <Text style={styles.filterText}>Dates</Text>
-        </TouchableOpacity>
-      </View>
-      
       {loading ? (
         <ActivityIndicator size="large" color="#2196F3" style={styles.loader} />
       ) : (
@@ -136,39 +114,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
-  },
-  searchContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 10,
-  },
-  searchInput: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  filterRow: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    justifyContent: "flex-start",
-  },
-  filterButton: {
-    backgroundColor: "#fff",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
-  filterText: {
-    fontSize: 14,
-    color: "#333",
   },
   loader: {
     marginTop: 40,
@@ -248,7 +193,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
   },
-
 });
 
 export default HomeScreen;

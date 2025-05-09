@@ -11,7 +11,8 @@ import {
   Platform,
   Image,
   ActivityIndicator,
-  ScrollView
+  ScrollView,
+  FlatList
 } from 'react-native';
 import { auth, db } from '../config/firebase';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
@@ -22,218 +23,415 @@ import { format } from 'date-fns';
 const MAPS_KEY = "AIzaSyDw26V3Tw0g6tXKWX5ruHx8nAl6eJrn7vI";
 
 const StartTripScreen = ({ navigation }) => {
-  // State declarations
   const [tripType, setTripType] = useState('');
-  const [startingPoint, setStartingPoint] = useState({ 
-    address: '', 
-    lat: null, 
+  const [startingPoint, setStartingPoint] = useState({
+    address: '',
+    lat: null,
     lng: null,
     placeId: null
   });
-  const [destination, setDestination] = useState({ 
-    address: '', 
-    lat: null, 
+  const [destination, setDestination] = useState({
+    address: '',
+    lat: null,
     lng: null,
-    photoUrl: null,
+    photos: [],
     placeId: null
   });
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(new Date());
   const [tripDescription, setTripDescription] = useState('');
-  const [meetingPoint, setMeetingPoint] = useState({ 
-    address: '', 
-    lat: null, 
+  const [meetingPoint, setMeetingPoint] = useState({
+    address: '',
+    lat: null,
     lng: null,
     placeId: null
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
-  const [errors, setErrors] = useState({
-    tripType: '',
-    startingPoint: '',
-    destination: '',
-    tripDescription: '',
-    meetingPoint: '',
-    general: ''
-  });
+  const [isWebMapsLoaded, setIsWebMapsLoaded] = useState(false);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [photoError, setPhotoError] = useState(null);
 
-  // Refs for Google Places
   const startingPointRef = useRef(null);
   const destinationRef = useRef(null);
   const meetingPointRef = useRef(null);
 
-  // Debug mount
+  const webAutocompleteRefs = {
+    startingPoint: useRef(null),
+    destination: useRef(null),
+    meetingPoint: useRef(null)
+  };
+
   useEffect(() => {
-    console.log('Component mounted - API Key:', MAPS_KEY ? 'Loaded' : 'Missing');
+    if (Platform.OS === 'web') {
+      if (window.google && window.google.maps) {
+        setIsWebMapsLoaded(true);
+        return;
+      }
+
+      const scriptId = 'google-maps-script';
+      if (document.getElementById(scriptId)) {
+        setIsWebMapsLoaded(true);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      
+      script.onload = () => {
+        console.log('Google Maps script loaded successfully');
+        setIsWebMapsLoaded(true);
+      };
+      
+      script.onerror = () => {
+        console.error('Failed to load Google Maps script');
+        Alert.alert('Error', 'Failed to load maps functionality');
+      };
+
+      document.head.appendChild(script);
+
+      return () => {
+        if (document.head.contains(script)) {
+          document.head.removeChild(script);
+        }
+      };
+    }
   }, []);
 
-  // Validate form fields
-  const validateForm = () => {
-    let isValid = true;
-    const newErrors = {
-      tripType: '',
-      startingPoint: '',
-      destination: '',
-      tripDescription: '',
-      meetingPoint: '',
-      general: ''
-    };
+  useEffect(() => {
+    if (Platform.OS === 'web' && isWebMapsLoaded) {
+      try {
+        const startInput = document.getElementById('starting-point-input');
+        if (startInput && !webAutocompleteRefs.startingPoint.current) {
+          webAutocompleteRefs.startingPoint.current = new window.google.maps.places.Autocomplete(
+            startInput,
+            {
+              types: ['geocode', 'establishment'],
+              componentRestrictions: { country: 'us' },
+              fields: ['formatted_address', 'geometry', 'place_id']
+            }
+          );
+          
+          webAutocompleteRefs.startingPoint.current.addListener('place_changed', () => {
+            const place = webAutocompleteRefs.startingPoint.current.getPlace();
+            if (!place.geometry) return;
+            
+            handleStartingPointSelect(null, {
+              description: place.formatted_address,
+              geometry: { location: place.geometry.location },
+              place_id: place.place_id
+            });
+          });
+        }
 
-    if (!tripType.trim()) {
-      newErrors.tripType = 'Trip type is required';
-      isValid = false;
-    }
+        const destInput = document.getElementById('destination-input');
+        if (destInput && !webAutocompleteRefs.destination.current) {
+          webAutocompleteRefs.destination.current = new window.google.maps.places.Autocomplete(
+            destInput,
+            {
+              types: ['geocode', 'establishment'],
+              componentRestrictions: { country: 'us' },
+              fields: ['formatted_address', 'geometry', 'place_id', 'photos', 'name']
+            }
+          );
+          
+          webAutocompleteRefs.destination.current.addListener('place_changed', () => {
+            const place = webAutocompleteRefs.destination.current.getPlace();
+            if (!place.geometry) return;
+            
+            handleDestinationSelect(null, {
+              description: place.formatted_address || place.name,
+              geometry: { location: place.geometry.location },
+              place_id: place.place_id,
+              photos: place.photos || []
+            });
+          });
+        }
 
-    if (!startingPoint.address) {
-      newErrors.startingPoint = 'Starting point is required';
-      isValid = false;
-    }
-
-    if (!destination.address) {
-      newErrors.destination = 'Destination is required';
-      isValid = false;
-    }
-
-    if (!tripDescription.trim()) {
-      newErrors.tripDescription = 'Trip description is required';
-      isValid = false;
-    }
-
-    if (!meetingPoint.address) {
-      newErrors.meetingPoint = 'Meeting point is required';
-      isValid = false;
-    }
-
-    setErrors(newErrors);
-    return isValid;
-  };
-
-  // Clear error when field is edited
-  const clearError = (field) => {
-    setErrors({
-      ...errors,
-      [field]: '',
-      general: ''
-    });
-  };
-
-  // Fetch place photo from Google Places (only for destination)
-  const fetchPlacePhoto = async (placeId) => {
-    try {
-      console.log('Fetching photo for place:', placeId);
-      const detailsResponse = await fetch(
-        `https://maps.googleapis.com/maps/api/place/details/json?placeid=${placeId}&key=${MAPS_KEY}&fields=name,photo`
-      );
-      const detailsData = await detailsResponse.json();
-      
-      if (detailsData.result?.photos?.length > 0) {
-        const photoReference = detailsData.result.photos[0].photo_reference;
-        return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${photoReference}&key=${MAPS_KEY}`;
+        const meetingInput = document.getElementById('meeting-point-input');
+        if (meetingInput && !webAutocompleteRefs.meetingPoint.current) {
+          webAutocompleteRefs.meetingPoint.current = new window.google.maps.places.Autocomplete(
+            meetingInput,
+            {
+              types: ['geocode', 'establishment'],
+              componentRestrictions: { country: 'us' },
+              fields: ['formatted_address', 'geometry', 'place_id']
+            }
+          );
+          
+          webAutocompleteRefs.meetingPoint.current.addListener('place_changed', () => {
+            const place = webAutocompleteRefs.meetingPoint.current.getPlace();
+            if (!place.geometry) return;
+            
+            handleMeetingPointSelect(null, {
+              description: place.formatted_address,
+              geometry: { location: place.geometry.location },
+              place_id: place.place_id
+            });
+          });
+        }
+      } catch (error) {
+        console.error('Error initializing autocomplete:', error);
       }
-      return null;
-    } catch (error) {
-      console.error('Photo fetch error:', error);
-      return null;
     }
+  }, [isWebMapsLoaded]);
+
+  const formatDisplayDate = (date) => {
+    return format(date, 'MMM dd, yyyy');
   };
 
-  // Handle place selection for starting point (no photo)
-  const handleStartingPointSelect = async (data, details = null) => {
-    if (!details) {
-      console.warn('No details for place:', data.description);
-      return;
+  const fetchPlacePhotos = async (placeId) => {
+    if (!placeId) {
+      console.log('No placeId provided for photo fetch');
+      return [];
     }
     
-    const address = data.description;
-    const lat = details.geometry?.location?.lat || null;
-    const lng = details.geometry?.location?.lng || null;
-    const placeId = details.place_id;
+    try {
+      console.log(`Fetching photos for place: ${placeId}`);
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/place/details/json?placeid=${placeId}&key=${MAPS_KEY}&fields=name,photos`
+      );
+      
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.status !== 'OK') {
+        throw new Error(`API returned status: ${data.status}`);
+      }
+      
+      if (data.result?.photos?.length > 0) {
+        const photoUrls = data.result.photos
+          .slice(0, 5)
+          .map(photo => {
+            return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${photo.photo_reference}&key=${MAPS_KEY}`;
+          });
+        
+        console.log(`Successfully fetched ${photoUrls.length} photos`);
+        return photoUrls;
+      }
+      
+      console.log('No photos found for this location');
+      return [];
+    } catch (error) {
+      console.error('Error fetching place photos:', error);
+      setPhotoError('Could not load destination photos');
+      return [];
+    }
+  };
+
+  const extractPhotoUrlsFromGooglePhotos = (photos) => {
+    if (!photos || !Array.isArray(photos) || photos.length === 0) {
+      return [];
+    }
+    
+    try {
+      return photos.slice(0, 5).map(photo => {
+        try {
+          return photo.getUrl({ maxWidth: 800, maxHeight: 600 });
+        } catch (e) {
+          console.error('Error getting photo URL:', e);
+          return null;
+        }
+      }).filter(url => url !== null);
+    } catch (error) {
+      console.error('Error extracting photo URLs:', error);
+      setPhotoError('Could not process destination photos');
+      return [];
+    }
+  };
+
+  const handleStartingPointSelect = async (data, details = null) => {
+    let address, lat, lng, placeId;
+    
+    if (Platform.OS === 'web') {
+      if (!details) return;
+      
+      address = details.description;
+      lat = details.geometry.location.lat();
+      lng = details.geometry.location.lng();
+      placeId = details.place_id;
+    } else {
+      if (!details) {
+        console.warn('No details for place:', data?.description);
+        return;
+      }
+      
+      address = data.description;
+      lat = details.geometry?.location?.lat || null;
+      lng = details.geometry?.location?.lng || null;
+      placeId = details.place_id;
+    }
     
     setStartingPoint({ address, lat, lng, placeId });
-    startingPointRef.current?.setAddressText(address);
-    startingPointRef.current?.blur();
-    clearError('startingPoint');
+    
+    if (Platform.OS !== 'web' && startingPointRef.current) {
+      startingPointRef.current.setAddressText(address);
+      startingPointRef.current.blur();
+    }
   };
 
-  // Handle place selection for destination (with photo)
   const handleDestinationSelect = async (data, details = null) => {
-    if (!details) {
-      console.warn('No details for place:', data.description);
-      return;
+    let address, lat, lng, placeId, photoUrls = [];
+    setPhotoError(null);
+    
+    if (Platform.OS === 'web') {
+      if (!details) return;
+      
+      address = details.description;
+      lat = details.geometry.location.lat();
+      lng = details.geometry.location.lng();
+      placeId = details.place_id;
+      
+      if (details.photos && Array.isArray(details.photos)) {
+        photoUrls = extractPhotoUrlsFromGooglePhotos(details.photos);
+      }
+    } else {
+      if (!details) {
+        console.warn('No details for place:', data?.description);
+        return;
+      }
+      
+      address = data.description;
+      lat = details.geometry?.location?.lat || null;
+      lng = details.geometry?.location?.lng || null;
+      placeId = details.place_id;
     }
     
-    const address = data.description;
-    const lat = details.geometry?.location?.lat || null;
-    const lng = details.geometry?.location?.lng || null;
-    const placeId = details.place_id;
-    
     setIsLoading(true);
+    
     try {
-      const photoUrl = await fetchPlacePhoto(placeId);
-      console.log('Destination selected:', { address, photoUrl: !!photoUrl });
-      setDestination({ address, lat, lng, photoUrl, placeId });
-      destinationRef.current?.setAddressText(address);
-      destinationRef.current?.blur();
-      clearError('destination');
+      if (photoUrls.length === 0 && placeId) {
+        photoUrls = await fetchPlacePhotos(placeId);
+      }
+      
+      setDestination({ 
+        address, 
+        lat, 
+        lng, 
+        photos: photoUrls,
+        placeId 
+      });
+      
+      setSelectedPhotoIndex(0);
+      
+      if (Platform.OS !== 'web' && destinationRef.current) {
+        destinationRef.current.setAddressText(address);
+        destinationRef.current.blur();
+      }
     } catch (error) {
-      console.error('Destination selection error:', error);
-      setDestination({ address, lat, lng, photoUrl: null, placeId });
+      console.error('Error handling destination selection:', error);
+      setDestination({ 
+        address, 
+        lat, 
+        lng, 
+        photos: [],
+        placeId 
+      });
+      setPhotoError('Failed to load destination information');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle place selection for meeting point (no photo)
   const handleMeetingPointSelect = async (data, details = null) => {
-    if (!details) {
-      console.warn('No details for place:', data.description);
-      return;
+    let address, lat, lng, placeId;
+    
+    if (Platform.OS === 'web') {
+      if (!details) return;
+      
+      address = details.description;
+      lat = details.geometry.location.lat();
+      lng = details.geometry.location.lng();
+      placeId = details.place_id;
+    } else {
+      if (!details) {
+        console.warn('No details for place:', data?.description);
+        return;
+      }
+      
+      address = data.description;
+      lat = details.geometry?.location?.lat || null;
+      lng = details.geometry?.location?.lng || null;
+      placeId = details.place_id;
     }
     
-    const address = data.description;
-    const lat = details.geometry?.location?.lat || null;
-    const lng = details.geometry?.location?.lng || null;
-    const placeId = details.place_id;
-    
     setMeetingPoint({ address, lat, lng, placeId });
-    meetingPointRef.current?.setAddressText(address);
-    meetingPointRef.current?.blur();
-    clearError('meetingPoint');
+    
+    if (Platform.OS !== 'web' && meetingPointRef.current) {
+      meetingPointRef.current.setAddressText(address);
+      meetingPointRef.current.blur();
+    }
   };
 
-  // Date picker handlers
   const onStartDateChange = (event, selectedDate) => {
+    const currentDate = selectedDate || startDate;
     setShowStartPicker(false);
-    if (event.type === 'dismissed') return;
+    setStartDate(currentDate);
     
-    if (selectedDate) {
-      setStartDate(selectedDate);
-      // Auto-adjust end date if earlier than new start date
-      if (endDate < selectedDate) {
-        setEndDate(selectedDate);
-      }
+    if (endDate < currentDate) {
+      setEndDate(currentDate);
     }
   };
 
   const onEndDateChange = (event, selectedDate) => {
+    const currentDate = selectedDate || endDate;
     setShowEndPicker(false);
-    if (event.type === 'dismissed') return;
     
-    if (selectedDate) {
-      if (selectedDate >= startDate) {
-        setEndDate(selectedDate);
-      } else {
-        Alert.alert("Invalid Date", "End date must be after start date");
-      }
+    if (currentDate >= startDate) {
+      setEndDate(currentDate);
+    } else {
+      Alert.alert("Invalid Date", "End date must be after start date");
     }
   };
 
-  // Format date for display
-  const formatDisplayDate = (date) => format(date, 'MMM dd, yyyy');
-
-  // Validate trip dates
-  const validateDates = () => {
+  const validateForm = () => {
+    if (!tripType.trim()) {
+      Alert.alert('Error', 'Please enter a trip type');
+      return false;
+    }
+    
+    if (!startingPoint.address.trim()) {
+      Alert.alert('Error', 'Please select a starting point');
+      return false;
+    }
+    
+    if (!destination.address.trim()) {
+      Alert.alert('Error', 'Please select a destination');
+      return false;
+    }
+    
+    if (!tripDescription.trim()) {
+      Alert.alert('Error', 'Please enter a trip description');
+      return false;
+    }
+    
+    if (!meetingPoint.address.trim()) {
+      Alert.alert('Error', 'Please select a meeting point');
+      return false;
+    }
+    
+    if (!startingPoint.lat || !startingPoint.lng) {
+      Alert.alert('Error', 'Invalid starting point coordinates');
+      return false;
+    }
+    
+    if (!destination.lat || !destination.lng) {
+      Alert.alert('Error', 'Invalid destination coordinates');
+      return false;
+    }
+    
+    if (!meetingPoint.lat || !meetingPoint.lng) {
+      Alert.alert('Error', 'Invalid meeting point coordinates');
+      return false;
+    }
+    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -241,41 +439,28 @@ const StartTripScreen = ({ navigation }) => {
       Alert.alert('Invalid Date', 'Start date cannot be in the past');
       return false;
     }
+    
     if (endDate < startDate) {
       Alert.alert('Invalid Date', 'End date must be after start date');
       return false;
     }
+    
     return true;
   };
 
-  // Handle trip submission
   const handleStartTrip = async () => {
-    console.log('Attempting to start trip...');
     if (isLoading) return;
-
-    // Validate form fields
-    if (!validateForm()) {
-      return;
-    }
-
-    // Validate dates
-    if (!validateDates()) return;
-
-    // Check if coordinates are valid for GeoPoint
-    if (!startingPoint.lat || !startingPoint.lng || 
-        !destination.lat || !destination.lng || 
-        !meetingPoint.lat || !meetingPoint.lng) {
-      Alert.alert('Error', 'Invalid location coordinates. Please try selecting locations again.');
-      return;
-    }
-
+    
+    if (!validateForm()) return;
+    
     setIsLoading(true);
     
     try {
       const tripData = {
         userId: auth.currentUser.uid,
         userEmail: auth.currentUser.email,
-        tripType,
+        userName: auth.currentUser.displayName|| auth.currentUser.email.split('@')[0],
+        tripType: tripType.trim(),
         startingPoint: {
           address: startingPoint.address,
           coordinates: new GeoPoint(startingPoint.lat, startingPoint.lng),
@@ -284,12 +469,12 @@ const StartTripScreen = ({ navigation }) => {
         destination: {
           address: destination.address,
           coordinates: new GeoPoint(destination.lat, destination.lng),
-          photoUrl: destination.photoUrl,
+          photos: destination.photos,
           placeId: destination.placeId
         },
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString(),
-        tripDescription,
+        tripDescription: tripDescription.trim(),
         meetingPoint: {
           address: meetingPoint.address,
           coordinates: new GeoPoint(meetingPoint.lat, meetingPoint.lng),
@@ -297,30 +482,43 @@ const StartTripScreen = ({ navigation }) => {
         },
         createdAt: new Date().toISOString(),
         status: 'active',
-        participants: [auth.currentUser.email]
+        participants: [auth.currentUser.uid],
+        updatedAt: new Date().toISOString()
       };
 
-      console.log('Creating trip with data:', tripData);
-      await addDoc(collection(db, 'Trips'), tripData);
+      const docRef = await addDoc(collection(db, 'Trips'), tripData);
+      console.log('Trip created with ID:', docRef.id);
+      
       Alert.alert('Success', 'Trip started successfully!');
       navigation.navigate('Home');
     } catch (error) {
-      console.error('Trip creation failed:', error);
-      Alert.alert('Error', error.message || 'Failed to start trip');
+      console.error('Error creating trip:', error);
+      Alert.alert('Error', 'Failed to start trip. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Render location picker component for starting point and meeting point (no photo)
-  const renderSimpleLocationPicker = (label, fieldName, ref, onPress) => {
+  const renderLocationInput = (label, key, value, onChangeText) => {
     return (
       <>
         <Text style={styles.label}>{label}</Text>
-        <View style={[
-          styles.autocompleteWrapper,
-          errors[fieldName] ? styles.errorInput : null
-        ]}>
+        <TextInput
+          id={`${key}-input`}
+          style={styles.input}
+          placeholder={`Enter ${label.toLowerCase()}`}
+          value={value}
+          onChangeText={onChangeText}
+        />
+      </>
+    );
+  };
+
+  const renderMobileAutocomplete = (label, ref, onPress) => {
+    return (
+      <>
+        <Text style={styles.label}>{label}</Text>
+        <View style={styles.autocompleteWrapper}>
           <GooglePlacesAutocomplete
             placeholder={`Enter ${label.toLowerCase()}`}
             onPress={onPress}
@@ -344,60 +542,42 @@ const StartTripScreen = ({ navigation }) => {
             renderRow={(item) => <Text style={styles.placeItem}>{item.description}</Text>}
           />
         </View>
-        {errors[fieldName] ? <Text style={styles.errorText}>{errors[fieldName]}</Text> : null}
       </>
     );
   };
 
-  // Render location picker component for destination (with photo)
-  const renderDestinationPicker = () => {
-    return (
-      <>
-        <Text style={styles.label}>Destination</Text>
-        <View style={[
-          styles.autocompleteWrapper,
-          errors.destination ? styles.errorInput : null
-        ]}>
-          <GooglePlacesAutocomplete
-            placeholder="Enter destination"
-            onPress={handleDestinationSelect}
-            query={{
-              key: MAPS_KEY,
-              language: 'en',
-              components: 'country:us',
-              types: ['geocode', 'establishment']
+  const DatePickerButton = ({ label, date, onPress }) => {
+    if (Platform.OS === 'web') {
+      return (
+        <View style={styles.dateInputWrapper}>
+          <Text style={styles.dateLabel}>{label}</Text>
+          <input
+            type="date"
+            value={date.toISOString().split('T')[0]}
+            onChange={(e) => {
+              const newDate = new Date(e.target.value);
+              if (label === 'Start Date') {
+                setStartDate(newDate);
+                if (endDate < newDate) {
+                  setEndDate(newDate);
+                }
+              } else {
+                if (newDate >= startDate) {
+                  setEndDate(newDate);
+                } else {
+                  Alert.alert("Invalid Date", "End date must be after start date");
+                }
+              }
             }}
-            styles={{
-              textInput: styles.input,
-              listView: styles.dropdown,
-              description: styles.placeDescription
-            }}
-            ref={destinationRef}
-            fetchDetails
-            enablePoweredByContainer={false}
-            debounce={300}
-            keepResultsAfterBlur={false}
-            listViewDisplayed="auto"
-            renderRow={(item) => <Text style={styles.placeItem}>{item.description}</Text>}
+            min={label === 'Start Date' 
+              ? new Date().toISOString().split('T')[0] 
+              : startDate.toISOString().split('T')[0]}
+            style={styles.webDateInput}
           />
         </View>
-        {errors.destination ? <Text style={styles.errorText}>{errors.destination}</Text> : null}
-        {destination.photoUrl && (
-          <View style={styles.photoContainer}>
-            <Image
-              source={{ uri: destination.photoUrl }}
-              style={styles.locationPhoto}
-              resizeMode="cover"
-            />
-            <Text style={styles.photoCaption}>Destination</Text>
-          </View>
-        )}
-      </>
-    );
-  };
+      );
+    }
 
-  // Render date picker button
-  const DatePickerButton = ({ label, date, onPress }) => {
     return (
       <View style={styles.dateInputWrapper}>
         <Text style={styles.dateLabel}>{label}</Text>
@@ -408,27 +588,90 @@ const StartTripScreen = ({ navigation }) => {
     );
   };
 
+  const renderDestinationPhotos = () => {
+    if (photoError) {
+      return (
+        <View style={styles.photoContainer}>
+          <View style={styles.placeholderPhoto}>
+            <Text style={styles.errorText}>{photoError}</Text>
+          </View>
+          <Text style={styles.photoCaption}>Destination Preview</Text>
+        </View>
+      );
+    }
+
+    if (!destination.photos || destination.photos.length === 0) {
+      return (
+        <View style={styles.photoContainer}>
+          <View style={styles.placeholderPhoto}>
+            <Text style={styles.placeholderText}>No photos available</Text>
+          </View>
+          <Text style={styles.photoCaption}>Destination Preview</Text>
+        </View>
+      );
+    }
+    
+    return (
+      <View style={styles.photoContainer}>
+        <Image
+          source={{ uri: destination.photos[selectedPhotoIndex] }}
+          style={styles.locationPhoto}
+          resizeMode="cover"
+          onError={() => setPhotoError('Failed to load photo')}
+        />
+        
+        {destination.photos.length > 1 && (
+          <>
+            <View style={styles.photoCounter}>
+              <Text style={styles.photoCounterText}>
+                {selectedPhotoIndex + 1} / {destination.photos.length}
+              </Text>
+            </View>
+            
+            <FlatList
+              data={destination.photos}
+              keyExtractor={(item, index) => `photo-${index}`}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.thumbnailsContainer}
+              renderItem={({ item, index }) => (
+                <TouchableOpacity 
+                  onPress={() => setSelectedPhotoIndex(index)}
+                  style={[
+                    styles.thumbnailWrapper,
+                    selectedPhotoIndex === index && styles.selectedThumbnail
+                  ]}
+                >
+                  <Image
+                    source={{ uri: item }}
+                    style={styles.thumbnail}
+                    resizeMode="cover"
+                    onError={() => console.log(`Thumbnail ${index} failed to load`)}
+                  />
+                </TouchableOpacity>
+              )}
+            />
+          </>
+        )}
+        
+        <Text style={styles.photoCaption}>Destination Preview</Text>
+      </View>
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
     >
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollViewContent}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={true}
       >
         <View style={styles.innerContainer}>
           <Text style={styles.title}>Start New Trip</Text>
-
-          {/* General Error Message */}
-          {errors.general ? (
-            <View style={styles.generalErrorContainer}>
-              <Text style={styles.generalErrorText}>{errors.general}</Text>
-            </View>
-          ) : null}
 
           {isLoading && (
             <View style={styles.overlayLoader}>
@@ -436,49 +679,65 @@ const StartTripScreen = ({ navigation }) => {
             </View>
           )}
 
-          {/* Trip Type Input */}
           <Text style={styles.label}>Trip Type</Text>
           <TextInput
-            style={[
-              styles.input,
-              errors.tripType ? styles.errorInput : null
-            ]}
+            style={styles.input}
             placeholder="e.g., Road Trip, Vacation"
             value={tripType}
-            onChangeText={(text) => {
-              setTripType(text);
-              clearError('tripType');
-            }}
+            onChangeText={setTripType}
           />
-          {errors.tripType ? <Text style={styles.errorText}>{errors.tripType}</Text> : null}
 
-          {/* Starting Point Picker (no photo) */}
-          {renderSimpleLocationPicker(
-            'Current Location', 
-            'startingPoint',
-            startingPointRef, 
-            handleStartingPointSelect
+          {Platform.OS === 'web' ? (
+            renderLocationInput(
+              'Starting Point',
+              'starting-point',
+              startingPoint.address,
+              (text) => setStartingPoint(prev => ({ ...prev, address: text }))
+            )
+          ) : (
+            renderMobileAutocomplete(
+              'Starting Point',
+              startingPointRef,
+              handleStartingPointSelect
+            )
           )}
 
-          {/* Destination Picker (with photo) */}
-          {renderDestinationPicker()}
+          {Platform.OS === 'web' ? (
+            <>
+              {renderLocationInput(
+                'Destination',
+                'destination',
+                destination.address,
+                (text) => setDestination(prev => ({ ...prev, address: text }))
+              )}
+              {renderDestinationPhotos()}
+            </>
+          ) : (
+            <>
+              {renderMobileAutocomplete(
+                'Destination',
+                destinationRef,
+                handleDestinationSelect
+              )}
+              {renderDestinationPhotos()}
+            </>
+          )}
 
-          {/* Date Pickers */}
           <Text style={styles.label}>Trip Dates</Text>
           <View style={styles.dateRow}>
-            <DatePickerButton 
+            <DatePickerButton
               label="Start Date"
               date={startDate}
               onPress={() => setShowStartPicker(true)}
             />
-            <DatePickerButton 
+            <DatePickerButton
               label="End Date"
               date={endDate}
               onPress={() => setShowEndPicker(true)}
             />
           </View>
 
-          {showStartPicker && (
+          {Platform.OS !== 'web' && showStartPicker && (
             <DateTimePicker
               value={startDate}
               mode="date"
@@ -488,7 +747,7 @@ const StartTripScreen = ({ navigation }) => {
             />
           )}
 
-          {showEndPicker && (
+          {Platform.OS !== 'web' && showEndPicker && (
             <DateTimePicker
               value={endDate}
               mode="date"
@@ -498,36 +757,33 @@ const StartTripScreen = ({ navigation }) => {
             />
           )}
 
-          {/* Trip Description */}
           <Text style={styles.label}>Trip Description</Text>
           <TextInput
-            style={[
-              styles.input, 
-              styles.descriptionInput,
-              errors.tripDescription ? styles.errorInput : null
-            ]}
+            style={[styles.input, styles.descriptionInput]}
             placeholder="Describe your trip plans, activities, etc."
             value={tripDescription}
-            onChangeText={(text) => {
-              setTripDescription(text);
-              clearError('tripDescription');
-            }}
+            onChangeText={setTripDescription}
             multiline
             numberOfLines={4}
           />
-          {errors.tripDescription ? <Text style={styles.errorText}>{errors.tripDescription}</Text> : null}
 
-          {/* Meeting Point Picker (no photo) */}
-          {renderSimpleLocationPicker(
-            'Meeting Point', 
-            'meetingPoint',
-            meetingPointRef, 
-            handleMeetingPointSelect
+          {Platform.OS === 'web' ? (
+            renderLocationInput(
+              'Meeting Point',
+              'meeting-point',
+              meetingPoint.address,
+              (text) => setMeetingPoint(prev => ({ ...prev, address: text }))
+            )
+          ) : (
+            renderMobileAutocomplete(
+              'Meeting Point',
+              meetingPointRef,
+              handleMeetingPointSelect
+            )
           )}
 
-          {/* Submit Button */}
-          <TouchableOpacity 
-            style={[styles.button, isLoading && styles.disabledButton]} 
+          <TouchableOpacity
+            style={[styles.button, isLoading && styles.disabledButton]}
             onPress={handleStartTrip}
             disabled={isLoading}
           >
@@ -553,24 +809,24 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     flexGrow: 1,
+    paddingBottom: 40,
   },
   innerContainer: {
     padding: 20,
-    paddingBottom: 80,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 25,
+    marginBottom: 30,
     textAlign: 'center',
-    color: '#0E0F11',
+    color: '#2c3e50',
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
-    marginTop: 15,
-    color: '#333',
+    marginTop: 20,
+    color: '#34495e',
   },
   input: {
     width: '100%',
@@ -581,18 +837,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     backgroundColor: '#fff',
     fontSize: 16,
-  },
-  errorInput: {
-    borderColor: 'red',
-  },
-  errorText: {
-    color: 'red',
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 4,
+    color: '#2c3e50',
   },
   descriptionInput: {
-    height: 100,
+    height: 120,
     textAlignVertical: 'top',
     paddingTop: 15,
   },
@@ -609,30 +857,32 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 5,
-    maxHeight: 150,
+    borderRadius: 8,
+    maxHeight: 200,
     elevation: 3,
     zIndex: 1000,
   },
   placeDescription: {
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    color: '#2c3e50',
   },
   placeItem: {
-    padding: 10,
+    padding: 12,
     fontSize: 14,
+    color: '#34495e',
   },
   dateRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 15,
+    marginBottom: 20,
   },
   dateInputWrapper: {
     width: '48%',
   },
   dateLabel: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
+    color: '#7f8c8d',
+    marginBottom: 6,
   },
   dateInput: {
     height: 50,
@@ -645,37 +895,107 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 16,
+    color: '#2c3e50',
+  },
+  webDateInput: {
+    width: '100%',
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    backgroundColor: '#fff',
+    fontSize: 16,
+    color: '#2c3e50',
   },
   photoContainer: {
-    marginBottom: 15,
+    marginVertical: 15,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#f5f5f5',
   },
   locationPhoto: {
     width: '100%',
-    height: 180,
-    borderRadius: 8,
-    marginTop: 10,
+    height: 200,
+  },
+  placeholderPhoto: {
+    width: '100%',
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#eaeaea',
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  placeholderText: {
+    color: '#7f8c8d',
+    fontSize: 16,
+  },
+  errorText: {
+    color: '#e74c3c',
+    fontSize: 16,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  photoCounter: {
+    position: 'absolute',
+    right: 10,
+    top: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 15,
+  },
+  photoCounterText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  thumbnailsContainer: {
+    paddingVertical: 10,
+    paddingHorizontal: 5,
+  },
+  thumbnailWrapper: {
+    marginHorizontal: 5,
+    borderRadius: 5,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  selectedThumbnail: {
+    borderColor: '#3498db',
+  },
+  thumbnail: {
+    width: 60,
+    height: 40,
   },
   photoCaption: {
-    marginTop: 5,
+    marginTop: 8,
+    marginBottom: 5,
     fontSize: 14,
-    color: '#666',
+    color: '#7f8c8d',
     textAlign: 'center',
   },
   button: {
     width: '100%',
     height: 50,
-    backgroundColor: '#0E0F11',
+    backgroundColor: '#3498db',
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 8,
-    marginTop: 25,
-    marginBottom: 15,
+    marginTop: 30,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   disabledButton: {
-    backgroundColor: '#999',
+    backgroundColor: '#bdc3c7',
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: '#fff',
     fontSize: 18,
     fontWeight: '600',
   },
@@ -683,20 +1003,8 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: 'rgba(255,255,255,0.8)',
     zIndex: 100,
-  },
-  generalErrorContainer: {
-    backgroundColor: '#FFEBEE',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#F44336',
-  },
-  generalErrorText: {
-    color: '#D32F2F',
-    fontWeight: '500',
   },
 });
 

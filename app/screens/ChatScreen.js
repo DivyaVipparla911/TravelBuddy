@@ -40,13 +40,31 @@ const ChatScreen = ({ route = {}, navigation }) => {
   const tripImage = params.tripImage || null;
 
   // State
-  const { currentUser } = useAuth() || {};
+  const { user: currentUser } = useAuth(); // Modified to match the AuthContext we created
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [otherUserAvatar, setOtherUserAvatar] = useState(null);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [debugInfo, setDebugInfo] = useState({});
   const flatListRef = useRef(null);
+
+  // Debug useEffect - log important values when they change
+  useEffect(() => {
+    console.log('DEBUG VALUES:');
+    console.log('- chatId:', chatId);
+    console.log('- currentUser:', currentUser?.uid);
+    console.log('- otherUserId:', otherUserId);
+    
+    // Update debug info state for UI display
+    setDebugInfo({
+      chatId,
+      currentUserId: currentUser?.uid,
+      otherUserId,
+      firebaseInitialized: !!db
+    });
+  }, [chatId, currentUser, otherUserId]);
 
   // Set up header
   useEffect(() => {
@@ -166,7 +184,7 @@ const ChatScreen = ({ route = {}, navigation }) => {
           }, 
           (err) => {
             console.error('Messages listener error:', err);
-            setError('Failed to load messages');
+            setError('Failed to load messages: ' + err.message);
             setLoading(false);
           }
         );
@@ -175,7 +193,7 @@ const ChatScreen = ({ route = {}, navigation }) => {
         return () => unsubscribe();
       } catch (err) {
         console.error('Setup chat error:', err);
-        setError('Failed to set up chat');
+        setError('Failed to set up chat: ' + err.message);
         setLoading(false);
       }
     };
@@ -183,21 +201,60 @@ const ChatScreen = ({ route = {}, navigation }) => {
     setupChat();
   }, [chatId, currentUser?.uid, otherUserId, tripId, tripName]);
 
-  // Handle sending messages
+  // Handle sending messages - Enhanced with better error handling
   const sendMessage = async () => {
     const trimmedInput = input.trim();
     if (!trimmedInput) return;
     
-    if (!chatId || !currentUser?.uid) {
-      Alert.alert('Error', 'Cannot send message');
+    // Check for obvious issues and show alerts
+    if (!db) {
+      Alert.alert('Error', 'Firebase not initialized');
+      return;
+    }
+    
+    if (!chatId) {
+      Alert.alert('Error', 'Chat ID is missing', [
+        { text: 'OK' },
+        { 
+          text: 'Show Debug Info', 
+          onPress: () => showDebugAlert() 
+        }
+      ]);
+      return;
+    }
+    
+    if (!currentUser?.uid) {
+      Alert.alert('Error', 'You are not logged in', [
+        { text: 'OK' },
+        { 
+          text: 'Show Debug Info', 
+          onPress: () => showDebugAlert() 
+        }
+      ]);
       return;
     }
     
     try {
+      setSendingMessage(true);
       console.log('Sending message...');
       
       // References to Firestore documents
       const chatRef = doc(db, 'chats', chatId);
+      
+      // Check if chat exists first
+      const chatSnapshot = await getDoc(chatRef);
+      if (!chatSnapshot.exists()) {
+        console.log('Chat document does not exist, creating it...');
+        await setDoc(chatRef, {
+          participants: [currentUser.uid, otherUserId || 'unknown'],
+          tripId: tripId || null,
+          tripName: tripName || null,
+          createdAt: serverTimestamp(),
+          lastMessage: '',
+          lastUpdated: serverTimestamp()
+        });
+      }
+      
       const messagesRef = collection(chatRef, 'messages');
       
       // First add the message
@@ -220,10 +277,37 @@ const ChatScreen = ({ route = {}, navigation }) => {
       
       // Clear input
       setInput('');
+      setSendingMessage(false);
     } catch (err) {
       console.error('Send message error:', err);
-      Alert.alert('Error', 'Failed to send message');
+      setSendingMessage(false);
+      
+      // Show detailed error
+      Alert.alert(
+        'Failed to Send Message', 
+        `Error: ${err.message}`,
+        [
+          { text: 'OK' },
+          { 
+            text: 'Show Debug Info', 
+            onPress: () => showDebugAlert() 
+          }
+        ]
+      );
     }
+  };
+
+  // Debug helper function
+  const showDebugAlert = () => {
+    Alert.alert(
+      'Debug Information',
+      `Chat ID: ${chatId || 'missing'}\n` +
+      `Current User ID: ${currentUser?.uid || 'not logged in'}\n` +
+      `Other User ID: ${otherUserId || 'missing'}\n` +
+      `Firebase Initialized: ${!!db}\n` +
+      `Trip ID: ${tripId || 'none'}`,
+      [{ text: 'OK' }]
+    );
   };
 
   // Scroll to bottom when messages change
@@ -314,6 +398,12 @@ const ChatScreen = ({ route = {}, navigation }) => {
         >
           <Text style={styles.retryText}>Retry</Text>
         </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.retryButton, { marginTop: 10, backgroundColor: '#555' }]}
+          onPress={showDebugAlert}
+        >
+          <Text style={styles.retryText}>Debug Info</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
@@ -347,6 +437,18 @@ const ChatScreen = ({ route = {}, navigation }) => {
           </View>
         ) : null}
 
+        {/* Debug banner when there are issues */}
+        {(!chatId || !currentUser?.uid) && (
+          <TouchableOpacity 
+            style={styles.debugBanner}
+            onPress={showDebugAlert}
+          >
+            <Text style={styles.debugBannerText}>
+              {!chatId ? '⚠️ Missing Chat ID' : !currentUser?.uid ? '⚠️ Not logged in' : '⚠️ Configuration issue'}
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* Messages list */}
         <FlatList
           ref={flatListRef}
@@ -377,18 +479,30 @@ const ChatScreen = ({ route = {}, navigation }) => {
           <TouchableOpacity
             style={[
               styles.sendButton,
-              !input.trim() ? styles.sendButtonDisabled : null
+              !input.trim() || sendingMessage ? styles.sendButtonDisabled : null
             ]}
             onPress={sendMessage}
-            disabled={!input.trim()}
+            disabled={!input.trim() || sendingMessage}
           >
-            <Ionicons
-              name="send"
-              size={24}
-              color={input.trim() ? "#2196F3" : "#ccc"}
-            />
+            {sendingMessage ? (
+              <ActivityIndicator size="small" color="#2196F3" />
+            ) : (
+              <Ionicons
+                name="send"
+                size={24}
+                color={input.trim() ? "#2196F3" : "#ccc"}
+              />
+            )}
           </TouchableOpacity>
         </View>
+        
+        {/* Debug button in bottom corner */}
+        <TouchableOpacity 
+          style={styles.debugButton}
+          onPress={showDebugAlert}
+        >
+          <Ionicons name="bug-outline" size={20} color="#fff" />
+        </TouchableOpacity>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -576,6 +690,26 @@ const styles = StyleSheet.create({
   sendButtonDisabled: {
     opacity: 0.5,
   },
+  debugBanner: {
+    backgroundColor: '#ffcc00',
+    padding: 8,
+    alignItems: 'center',
+  },
+  debugBannerText: {
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  debugButton: {
+    position: 'absolute',
+    right: 10,
+    bottom: 80,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
 });
 
 export default ChatScreen;
