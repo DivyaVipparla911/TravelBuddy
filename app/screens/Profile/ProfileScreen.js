@@ -9,27 +9,32 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
-  Platform
+  Platform,
+  FlatList,
+  Button
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useNavigation } from "@react-navigation/native";
-import { auth, db } from "../../config/firebase";
-import { collection, query, where, getDocs, doc, updateDoc, onSnapshot } from "firebase/firestore";
+import { auth, db , firestore} from "../../config/firebase";
+import { collection, query, where, getDocs, doc, updateDoc, onSnapshot, arrayUnion } from "firebase/firestore";
 import defaultAvatar from "../../../assets/profile-pic.png";
 
 const ProfileScreen = () => {
   const [profileData, setProfileData] = useState(null);
   const [upcomingTrips, setUpcomingTrips] = useState([]);
   const [pastTrips, setPastTrips] = useState([]);
+  const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editableData, setEditableData] = useState({});
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [savingChanges, setSavingChanges] = useState(false);
-  
+  const [showBuddyInputFor, setShowBuddyInputFor] = useState(null); // Track which trip's input is open
+  const [buddyEmail, setBuddyEmail] = useState(""); // Store inputted email
+
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -71,7 +76,7 @@ const ProfileScreen = () => {
           });
           
           // Fetch trips data
-          //await fetchTrips(user.uid);
+          await fetchTrips(user.uid);
           setLoading(false);
         }, (err) => {
           console.error("Error fetching profile:", err);
@@ -87,42 +92,128 @@ const ProfileScreen = () => {
       }
     };
     
-    // Fetch trips from Firestore
     const fetchTrips = async (userId) => {
       try {
         const tripsRef = collection(db, "Trips");
-        const q = query(tripsRef, where("userId", "==", userId));
-        const querySnapshot = await getDocs(q);
+        const myTripsQ = query(tripsRef, where("userId", "==", userId));
+        const querySnapshot = await getDocs(myTripsQ);
+        const tripsSnapshot = await getDocs(tripsRef);
+        const tripsData = tripsSnapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(trip => 
+            trip.userId === userId || (trip.participants && trip.participants.includes(auth.currentUser.email))
+          );
+
+        const myTripsData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
         
         const now = new Date();
-        const upcoming = [];
-        const past = [];
-        
-        querySnapshot.forEach((doc) => {
-          const trip = { id: doc.id, ...doc.data() };
-          // Parse date strings to Date objects for comparison
-          const endDate = new Date(trip.endDate);
-          
-          if (endDate >= now) {
-            upcoming.push(trip);
-          } else {
-            past.push(trip);
-          }
-        });
-        
-        // Sort trips by date
-        upcoming.sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
-        past.sort((a, b) => new Date(b.endDate) - new Date(a.endDate)); // Most recent first
-        
+        const upcoming = tripsData.filter(t => new Date(t.startDate) >= now);
+        const past = tripsData.filter(t => new Date(t.startDate) < now);
+
         setUpcomingTrips(upcoming);
         setPastTrips(past);
-      } catch (err) {
-        console.error("Error fetching trips:", err);
+        setTrips(myTripsData);
+      } catch (error) {
+        console.error("Error fetching user trips:", error);
       }
     };
-
+    
     fetchProfileData();
   }, []);
+
+  const addBuddy = async (tripId, email) => {
+    try {
+      const tripRef = doc(db, "Trips", tripId);
+      await updateDoc(tripRef, {
+        participants: arrayUnion(email),
+      });
+      alert("Buddy added successfully!");
+      setBuddyEmail(""); // Reset input
+      setShowBuddyInputFor(null); // Hide input field
+    } catch (error) {
+      console.error("Error adding buddy:", error);
+      alert("Failed to add buddy.");
+    }
+  };
+  
+
+  const renderMyTrip = ({ item }) => {
+    const {
+      destination,
+      photoUrl,
+      tripType,
+      description = "Explore the beautiful destination",
+      price = "$$$",
+      id
+    } = item;
+  
+    const destinationName = destination?.address?.split(',')[0] || "Unknown Destination";
+  
+    return (
+      <View style={styles.tripCard}>
+        <View style={styles.tripContent}>
+          <Text style={styles.tripTitle}>{destinationName}</Text>
+          <Text style={styles.tripDescription}>{description}</Text>
+  
+          <View style={styles.tripTagsRow}>
+            <View style={styles.tripTypeTag}>
+              <Text style={styles.tripTypeText}>{tripType || "Adventure"}</Text>
+            </View>
+            <Text style={styles.tripPrice}>{price}</Text>
+          </View>
+  
+          {showBuddyInputFor === id ? (
+            <>
+              <TextInput
+                placeholder="Enter buddy's email"
+                value={buddyEmail}
+                onChangeText={setBuddyEmail}
+                style={styles.buddyInput}
+                keyboardType="email-address"
+              />
+              <Button title="Submit" onPress={() => addBuddy(id, buddyEmail)} />
+              <Button title="Cancel" onPress={() => setShowBuddyInputFor(null)} />
+            </>
+          ) : (
+            <Button title="Add Buddy" onPress={() => setShowBuddyInputFor(id)} />
+          )}
+        </View>
+      </View>
+    );
+  };
+  
+
+    const renderTrip = ({ item }) => {
+      const {
+        destination,
+        photoUrl,
+        tripType,
+        description = "Explore the beautiful destination",
+        price = "$$$"
+      } = item;
+  
+      // Use the first part of the address or a default destination name
+      const destinationName = destination?.address?.split(',')[0] || "Unknown Destination";
+  
+      return (
+        <View style={styles.tripCard}> 
+          <View style={styles.tripContent}>
+            <Text style={styles.tripTitle}>{destinationName}</Text>
+            <Text style={styles.tripDescription}>{description}</Text>
+            
+            <View style={styles.tripTagsRow}>
+              <View style={styles.tripTypeTag}>
+                <Text style={styles.tripTypeText}>{tripType || "Adventure"}</Text>
+              </View>
+              <Text style={styles.tripPrice}>{price}</Text>
+            </View>
+          </View>
+        </View>
+      );
+    };
 
   const handleEditToggle = () => {
     if (isEditing) {
@@ -238,6 +329,7 @@ const ProfileScreen = () => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#000" />
+        <Text>Loading profile...</Text>
       </View>
     );
   }
@@ -300,7 +392,7 @@ const ProfileScreen = () => {
             <Text style={styles.infoText}>{auth.currentUser?.email}</Text>
           </View>
           
-          <View style={styles.infoItem}>
+          {/* <View style={styles.infoItem}>
             <Ionicons name="call-outline" size={18} color="#555" />
             {isEditing ? (
               <TextInput
@@ -313,7 +405,7 @@ const ProfileScreen = () => {
             ) : (
               <Text style={styles.infoText}>{profileData?.phone || ""}</Text>
             )}
-          </View>
+          </View> */}
           
           <View style={styles.infoItem}>
             <Ionicons name="calendar-outline" size={18} color="#555" />
@@ -392,9 +484,70 @@ const ProfileScreen = () => {
         
        {/* Trip Sections Container */}
 <View style={styles.tripSectionsContainer}>
+<View style={styles.tripsSection}>
+  <Text style={styles.sectionTitle}>My Trips</Text>
+  <FlatList
+    data={trips}
+    renderItem={renderMyTrip}
+    keyExtractor={(item) => item.id}
+    contentContainerStyle={styles.list}
+    showsVerticalScrollIndicator={false}
+  />
+</View>
 
-{/* My Trip Section */}
-<TouchableOpacity 
+<View style={styles.tripsSection}>
+  <Text style={styles.sectionTitle}>Upcoming Trips</Text>
+  <FlatList
+    data={pastTrips}
+    renderItem={renderTrip}
+    keyExtractor={(item) => item.id}
+    contentContainerStyle={styles.list}
+    showsVerticalScrollIndicator={false}
+  />
+</View>
+
+<View style={styles.tripsSection}>
+  <Text style={styles.sectionTitle}>Past Trips</Text>
+  <FlatList
+    data={upcomingTrips}
+    renderItem={renderTrip}
+    keyExtractor={(item) => item.id}
+    contentContainerStyle={styles.list}
+    showsVerticalScrollIndicator={false}
+  />
+</View>
+
+
+
+{/* <View style={styles.tripsSection}>
+  <Text style={styles.sectionTitle}>My Trips</Text>
+
+  <Text style={styles.subTitle}>Upcoming Trips</Text>
+  {upcomingTrips.length > 0 ? (
+    upcomingTrips.map((trip) => (
+      <View key={trip.id} style={styles.tripCard}>
+        <Text style={styles.tripTitle}>{trip.destination || "Unnamed Destination"}</Text>
+        <Text style={styles.tripDates}>{formatDateRange(trip.startDate, trip.endDate)}</Text>
+      </View>
+    ))
+  ) : (
+    <Text style={styles.noTripsText}>No upcoming trips.</Text>
+  )}
+
+  <Text style={styles.subTitle}>Past Trips</Text>
+  {pastTrips.length > 0 ? (
+    pastTrips.map((trip) => (
+      <View key={trip.id} style={styles.tripCard}>
+        <Text style={styles.tripTitle}>{trip.destination || "Unnamed Destination"}</Text>
+        <Text style={styles.tripDates}>{formatDateRange(trip.startDate, trip.endDate)}</Text>
+      </View>
+    ))
+  ) : (
+    <Text style={styles.noTripsText}>No past trips.</Text>
+  )}
+</View> */}
+
+{/* <TouchableOpacity 
   style={styles.tripSection} 
   onPress={() => navigation.navigate("CurrentTrip")}
 >
@@ -403,12 +556,9 @@ const ProfileScreen = () => {
     <Ionicons name="chevron-forward" size={20} color="#555" />
   </View>
 </TouchableOpacity>
+<View style={styles.divider} /> */}
 
-{/* Divider */}
-<View style={styles.divider} />
-
-{/* Upcoming Trip Section */}
-<TouchableOpacity 
+{/* <TouchableOpacity 
   style={styles.tripSection} 
   onPress={() => navigation.navigate("UpcomingTrips")}
 >
@@ -416,12 +566,9 @@ const ProfileScreen = () => {
     <Text style={styles.tripSectionTitle}>Upcoming Trip</Text>
     <Ionicons name="chevron-forward" size={20} color="#555" />
   </View>
-</TouchableOpacity>
+</TouchableOpacity> */}
 
-{/* Divider */}
-<View style={styles.divider} />
-
-{/* Past Trip Section */}
+{/* <View style={styles.divider} />
 <TouchableOpacity 
   style={styles.tripSection} 
   onPress={() => navigation.navigate("PastTrips")}
@@ -430,7 +577,7 @@ const ProfileScreen = () => {
     <Text style={styles.tripSectionTitle}>Past Trip</Text>
     <Ionicons name="chevron-forward" size={20} color="#555" />
   </View>
-</TouchableOpacity>
+</TouchableOpacity> */}
 
 </View> 
       
@@ -656,6 +803,13 @@ const styles = StyleSheet.create({
   tripDetails: {
     flex: 1,
   },
+  buddyInput: {
+    borderColor: "#ccc",
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginVertical: 8,
+  },  
   tripName: {
     fontSize: 15,
     fontWeight: "500",

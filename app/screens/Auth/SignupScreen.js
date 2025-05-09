@@ -66,31 +66,6 @@ const SignupScreen = ({ navigation }) => {
       <Text style={styles.title}>Create Account</Text>
       <Text style={styles.subtitle}>Fill in your details to get started</Text>
 
-      {/* Full Name Field */}
-      <Text style={styles.label}>Full Name</Text>
-      <View style={styles.inputContainer}>
-        <Ionicons name="person-outline" size={20} color="gray" style={styles.icon} />
-        <TextInput 
-          style={styles.input} 
-          placeholder="Enter your full name" 
-          value={fullName} 
-          onChangeText={setFullName} 
-        />
-      </View>
-
-      {/* Mobile Field */}
-      <Text style={styles.label}>Mobile Number</Text>
-      <View style={styles.inputContainer}>
-        <Ionicons name="call-outline" size={20} color="gray" style={styles.icon} />
-        <TextInput 
-          style={styles.input} 
-          placeholder="Enter mobile number" 
-          keyboardType="phone-pad"
-          value={mobile} 
-          onChangeText={setMobile} 
-        />
-      </View>
-
       {/* Email Field */}
       <Text style={styles.label}>Email Address</Text>
       <View style={styles.inputContainer}>

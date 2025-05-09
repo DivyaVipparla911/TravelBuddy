@@ -28,7 +28,7 @@ const CreateProfile = () => {
   const [aboutMe, setAboutMe] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
-
+  
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -152,17 +152,6 @@ const CreateProfile = () => {
             <Text style={styles.changePhotoText}>Change Photo</Text>
           </View>
 
-          <Text style={styles.label}>Full Name</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="person-outline" size={20} color="gray" style={styles.icon} />
-            <TextInput 
-              style={styles.input} 
-              placeholder="Enter your full name" 
-              value={fullName} 
-              onChangeText={setFullName} 
-            />
-          </View>
-
           {isVerified ? (
             <View style={styles.verificationContainer}>
               <Text style={styles.label}>Verification Status</Text>
@@ -187,6 +176,17 @@ const CreateProfile = () => {
               <Text style={styles.uploadButtonText}>Upload License or State ID</Text>
             </TouchableOpacity>
           )}
+
+<         Text style={styles.label}>Full Name</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons name="person-outline" size={20} color="gray" style={styles.icon} />
+            <TextInput 
+              style={styles.input} 
+              placeholder="Enter your full name" 
+              value={fullName} 
+              onChangeText={setFullName} 
+            />
+            </View>
 
           <Text style={styles.label}>Date of Birth</Text>
           <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowDatePicker(true)}>
