@@ -119,8 +119,7 @@ const SignupScreen = ({ navigation }) => {
         <Text style={styles.generalErrorText}>Please fill all the required fields</Text>
       )}
 
-      {/* Full Name Field */}
-      <Text style={styles.label}>Full Name</Text>
+      {/* <Text style={styles.label}>Full Name</Text>
       <View style={[
         styles.inputContainer,
         errors.fullName ? styles.errorInput : null
@@ -143,7 +142,6 @@ const SignupScreen = ({ navigation }) => {
       </View>
       {errors.fullName ? <Text style={styles.errorText}>{errors.fullName}</Text> : null}
 
-      {/* Mobile Field */}
       <Text style={styles.label}>Mobile Number</Text>
       <View style={[
         styles.inputContainer,
@@ -166,7 +164,7 @@ const SignupScreen = ({ navigation }) => {
           }} 
         />
       </View>
-      {errors.mobile ? <Text style={styles.errorText}>{errors.mobile}</Text> : null}
+      {errors.mobile ? <Text style={styles.errorText}>{errors.mobile}</Text> : null} */}
 
       {/* Email Field */}
       <Text style={styles.label}>Email Address</Text>
