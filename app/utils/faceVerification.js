@@ -3,8 +3,8 @@ import * as FileSystem from 'expo-file-system';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // Azure Face API configuration
-const FACE_API_KEY = ""; // Replace with your Azure Face API key
-const FACE_API_ENDPOINT = ""; // Replace with your endpoint
+const FACE_API_KEY = "7uFvnT1RdWVTjNVs1Nwb4p6jjlixAvPyC3EbMlMZLujRsamsgR0KJQQJ99BDACYeBjFXJ3w3AAAKACOGXV2o"; // Replace with your Azure Face API key
+const FACE_API_ENDPOINT = "https://face-id-travelbuddy.cognitiveservices.azure.com/face/v1.0"; // Replace with your endpoint
 
 /**
  * Uploads image to Firebase Storage and returns download URL

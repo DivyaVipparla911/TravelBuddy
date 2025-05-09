@@ -14,6 +14,7 @@ import VerifyingSubmissionScreen from "./app/screens/Profile/VerifyingSubmission
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { UserContextProvider } from "./app/contexts/UserContext";
+import { AuthProvider, useAuth } from "./app/contexts/AuthContext"; // Added AuthProvider import
 
 const Stack = createStackNavigator();
 const ProfileStack = createStackNavigator();
@@ -42,37 +43,9 @@ const ProfileCreationNavigator = () => {
   );
 };
 
+// Updated MainNavigator to use AuthContext
 const MainNavigator = () => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [profileCreated, setProfileCreated] = useState(false);
-
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUser(user);
-        const userDocRef = doc(firestore, "users", user.uid);
-        const unsubscribeDoc = onSnapshot(userDocRef, (docSnap) => {
-          if (docSnap.exists() && docSnap.data().profileCreated) {
-            setProfileCreated(true);
-          } else {
-            setProfileCreated(false);
-          }
-          setLoading(false);
-        });
-
-        return () => {
-          unsubscribeDoc(); // cleanup listener
-        };
-      } else {
-        setUser(null);
-        setProfileCreated(false);
-        setLoading(false);
-      }
-    });
-
-    return () => unsubscribeAuth();
-  }, []);
+  const { user, loading, profileCreated } = useAuth();
 
   if (loading) {
     return (
@@ -95,11 +68,20 @@ const MainNavigator = () => {
   );
 };
 
+// Added AuthenticatedApp wrapper component
+const AuthenticatedApp = () => {
+  return (
+    <AuthProvider>
+      <MainNavigator />
+    </AuthProvider>
+  );
+};
+
 export default function App() {
   return (
     <UserContextProvider>
       <NavigationContainer>
-        <MainNavigator />
+        <AuthenticatedApp />
       </NavigationContainer>
     </UserContextProvider>
   );
