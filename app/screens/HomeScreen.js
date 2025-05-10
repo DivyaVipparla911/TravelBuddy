@@ -26,6 +26,7 @@ const HomeScreen = () => {
           id: doc.id,
           ...doc.data()
         }));
+ 
         setTrips(tripsData);
       } catch (error) {
         console.error("Error fetching trips: ", error);

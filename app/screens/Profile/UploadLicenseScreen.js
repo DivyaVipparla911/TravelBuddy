@@ -95,7 +95,7 @@ const UploadLicenseScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Upload Driver's License</Text>
+      <Text style={styles.title}>Upload your ID</Text>
       <Text style={styles.subtitle}>Please upload clear photos of your ID</Text>
 
       <View style={styles.uploadContainer}>
