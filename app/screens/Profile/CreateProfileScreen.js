@@ -103,6 +103,41 @@ const CreateProfile = () => {
     );
   };
 
+  const DatePickerButton = ({ label, date, onPress }) => {
+      if (Platform.OS === 'web') {
+        return (
+          <View style={styles.dateInputWrapper}>
+            <Text style={styles.dateLabel}>{label}</Text>
+            <input
+              type="date"
+              value={date.toISOString().split('T')[0]}
+              onChange={(e) => {
+                const newDate = new Date(e.target.value);
+                if (label === 'Date of Birth') {
+                  setDateOfBirth(newDate);
+                  
+                } 
+              }}
+              min={label === 'Date of Birth' 
+                ? new Date().toISOString().split('T')[0] 
+                : dateOfBirth.toISOString().split('T')[0]}
+              style={styles.webDateInput}
+            />
+          </View>
+        );
+      }
+  
+      return (
+        <View style={styles.dateInputWrapper}>
+          <Text style={styles.dateLabel}>{label}</Text>
+          <TouchableOpacity onPress={onPress} style={styles.dateInput}>
+            <Text style={styles.dateText}>{formatDisplayDate(date)}</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    };
+  
+
   const handleSave = async () => {
     if (!validateFields()) {
       Alert.alert("Error", "Please fill all required fields");
@@ -225,7 +260,7 @@ const CreateProfile = () => {
           {errors.fullName && <Text style={styles.errorText}>Please enter your full name</Text>}
 
 
-          <Text style={styles.label}>Date of Birth *</Text>
+          {/* <Text style={styles.label}>Date of Birth *</Text>
           <TouchableOpacity 
             style={[styles.datePickerButton, errors.dateOfBirth && styles.errorInput]} 
             onPress={() => setShowDatePicker(true)}
@@ -242,7 +277,16 @@ const CreateProfile = () => {
                 if (date) setDateOfBirth(date);
               }}
             />
-          )}
+          )} */}
+
+          <View style={styles.dateRow}>
+                      <DatePickerButton
+                        label="Date of Birth *"
+                        date={dateOfBirth}
+                        onPress={() => setShowStartPicker(true)}
+                      />
+                      </View>
+                      
 
           <Text style={styles.label}>Gender *</Text>
           <View style={[styles.pickerContainer, errors.gender && styles.errorInput]}>

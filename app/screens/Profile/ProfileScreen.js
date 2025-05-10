@@ -115,13 +115,12 @@ const ProfileScreen = () => {
           .filter(trip => 
             trip.userId === userId || (trip.participants && trip.participants.includes(auth.currentUser.email))
           );
+          const now = new Date();
+          const myTripsData = querySnapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(t => new Date(t.startDate) >= now);
 
-        const myTripsData = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        
-        const now = new Date();
+      
         const upcoming = tripsData.filter(t => new Date(t.startDate) >= now);
         const past = tripsData.filter(t => new Date(t.endDate) < now);
         
@@ -140,18 +139,21 @@ const ProfileScreen = () => {
   const handleResetPassword = async () => {
     try {
       const user = auth.currentUser;
-      if (!user) {
-        Alert.alert("Error", "User not authenticated");
+  
+      if (!user || !user.email) {
+        Alert.alert("Error", "User not authenticated or email not available.");
         return;
       }
+  
       await sendPasswordResetEmail(auth, user.email);
       Alert.alert("Success", "Password reset email sent. Please check your inbox.");
       setShowSettingsModal(false);
     } catch (error) {
       console.error("Error sending password reset email:", error);
-      Alert.alert("Error", "Failed to send password reset email");
+      Alert.alert("Error", "Failed to send password reset email.");
     }
   };
+  
 
   const showTermsAndConditions = () => {
     setTermsVisible(true);
@@ -216,8 +218,22 @@ const endDateFormatted = endDate1 ? endDate1.toLocaleDateString('en-US') : 'Not 
                 style={styles.buddyInput}
                 keyboardType="email-address"
               />
-              <Button title="Submit" onPress={() => addBuddy(id, buddyEmail)} />
-              <Button title="Cancel" onPress={() => setShowBuddyInputFor(null)} />
+               <TouchableOpacity
+              style={styles.addBuddyButton}
+              onPress={() => addBuddy(id, buddyEmail)}
+            >
+              <Text style={styles.addBuddyButtonText}>Submit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.addBuddyButton}
+              onPress={() => setShowBuddyInputFor(null)}
+            >
+              <Text style={styles.addBuddyButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            
+              {/* <Button title="Submit" onPress={() => addBuddy(id, buddyEmail)} />
+              <Button title="Cancel" onPress={() => setShowBuddyInputFor(null)} /> */}
+
             </>
           ) : (
             <TouchableOpacity
@@ -641,7 +657,7 @@ if (!profileData) {
 <View style={styles.tripsSection}>
   <Text style={styles.sectionTitle}>Upcoming Trips</Text>
   <FlatList
-    data={pastTrips}
+    data={upcomingTrips}
     renderItem={renderTrip}
     keyExtractor={(item) => item.id}
     contentContainerStyle={styles.list}
@@ -652,7 +668,7 @@ if (!profileData) {
 <View style={styles.tripsSection}>
   <Text style={styles.sectionTitle}>Past Trips</Text>
   <FlatList
-    data={upcomingTrips}
+    data={pastTrips}
     renderItem={renderTrip}
     keyExtractor={(item) => item.id}
     contentContainerStyle={styles.list}
